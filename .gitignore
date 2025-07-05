@@ -21,3 +21,4 @@ geoserver_config-*.tar
 
 # Temporary files, for example, from tests.
 /tmp/
+mix.lock
