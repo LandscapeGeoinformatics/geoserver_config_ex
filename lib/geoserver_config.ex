@@ -7,6 +7,8 @@ defmodule GeoserverConfig do
   alias GeoserverConfig.Coverages
   alias GeoserverConfig.Styles
   alias GeoserverConfig.StyleAssignToLayer
+  alias GeoserverConfig.LayerGroups
+
 
   def fetch_workspaces do
     Workspaces.fetch_workspaces()
@@ -46,5 +48,10 @@ defmodule GeoserverConfig do
   defdelegate delete_style(style_name, workspace \\ nil, opts \\ []), to: Styles
 
   defdelegate assign_style_to_layer(workspace, layer_name, style_name, style_workspace \\ nil), to: StyleAssignToLayer
+
+  defdelegate list_layer_groups, to: LayerGroups
+  defdelegate create_layer_group(xml_body), to: LayerGroups
+  defdelegate update_layer_group(name, xml_body), to: LayerGroups
+  defdelegate delete_layer_group(name), to: LayerGroups
 
 end
