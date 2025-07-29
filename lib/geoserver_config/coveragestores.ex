@@ -1,13 +1,35 @@
 defmodule GeoserverConfig.Coveragestores do
   @moduledoc """
-  A module for interacting with GeoServer coveragestores.
+  Provides functions for managing GeoServer coverage stores via the REST API.
+
+  This module allows listing, creating, updating, and deleting coverage stores
+  in a specified workspace. Coverage stores typically reference raster data
+  like GeoTIFF or COGs (Cloud Optimized GeoTIFFs), and are essential for configuring
+  raster layers in GeoServer.
+
+  ## Environment Variables
+
+    - `GEOSERVER_BASE_URL` — Base URL of the GeoServer instance
+    - `GEOSERVER_USERNAME` — Username for authentication
+    - `GEOSERVER_PASSWORD` — Password for authentication
   """
 
   @base_url System.get_env("GEOSERVER_BASE_URL")
   @username System.get_env("GEOSERVER_USERNAME")
   @password System.get_env("GEOSERVER_PASSWORD")
 
-  # GET: List coverage stores
+@doc """
+  Lists all coverage stores in the specified workspace.
+
+  ## Parameters
+    - `workspace` (`String.t`) — Name of the workspace to fetch coverage stores from.
+
+  ## Returns
+    - `%Req.Response{}` with JSON body listing coverage stores.
+
+  ## Example
+      GeoserverConfig.Coveragestores.list_coveragestores("demo_workspace")
+  """
   def list_coveragestores(workspace) do
     url = "#{@base_url}/workspaces/#{workspace}/coveragestores"
 
@@ -18,7 +40,31 @@ defmodule GeoserverConfig.Coveragestores do
     )
   end
 
- # POST: Create a new coverage store
+@doc """
+  Creates a new coverage store for a GeoTIFF or COG raster file in the specified workspace.
+
+  ## Parameters
+    - `workspace` (`String.t`) — The name of the GeoServer workspace.
+    - `store_name` (`String.t`) — Desired name of the coverage store.
+    - `geotiff_path` (`String.t`) — File path or URL to the GeoTIFF/COG file.
+    - `description` (`String.t`, optional) — Optional description of the store (default: empty string).
+    - `opts` (`map`, optional) — Additional options such as:
+      - `:connectionParameters`
+      - `:metadata`
+      - `:disableOnConnFailure`
+
+  ## Returns
+    - `{:ok, message}` on success
+    - `{:error, reason}` on failure
+
+  ## Example
+      GeoserverConfig.Coveragestores.create_coveragestore(
+        "demo_workspace",
+        "demo_coverage_store",
+        "file:///data/elevation.tif",
+        "Description of Coverage Store"
+      )
+  """
  def create_coveragestore(workspace, store_name, geotiff_path, description \\ "", opts \\ %{}) do
   base_url = "#{@base_url}/workspaces/#{workspace}/coveragestores"
 
@@ -62,7 +108,34 @@ defmodule GeoserverConfig.Coveragestores do
 end
 
 
-  # PUT: Update a coverage store
+@doc """
+  Updates an existing coverage store.
+
+  ## Parameters
+    - `workspace` (`String.t`) — The name of the workspace containing the store.
+    - `store_name` (`String.t`) — The name of the coverage store to update.
+    - `updated_params` (`map`) — Map of updated fields. Expected keys:
+      - `:type`
+      - `:enabled`
+      - `:url`
+      - `:description`
+
+  ## Returns
+    - `{:ok, message}` on success
+    - `{:error, reason}` on failure
+
+  ## Example
+      GeoserverConfig.Coveragestores.update_coveragestore(
+        "demo_workspace",
+        "demo_coverage_store",
+        %{
+          type: "GeoTIFF",
+          enabled: true,
+          url: "file:///new/path/elevation.tif",
+          description: "Updated raster file"
+        }
+      )
+  """
   def update_coveragestore(workspace, store_name, updated_params) do
     url = "#{@base_url}/workspaces/#{workspace}/coveragestores/#{store_name}"
 
@@ -94,7 +167,22 @@ end
     end
   end
 
-  # DELETE: Remove a coverage store
+@doc """
+  Deletes a coverage store from the specified workspace.
+
+  Uses the `purge=true` parameter to also delete related resources.
+
+  ## Parameters
+    - `workspace` (`String.t`) — Name of the workspace.
+    - `name` (`String.t`) — Name of the coverage store to delete.
+
+  ## Returns
+    - `{:ok, message}` on success
+    - `{:error, reason}` on failure
+
+  ## Example
+      GeoserverConfig.Coveragestores.delete_coveragestore("demo_workspace", "demo_coverage_store")
+  """
   def delete_coveragestore(workspace, name) do
     url = "#{@base_url}/workspaces/#{workspace}/coveragestores/#{name}?purge=true"
 

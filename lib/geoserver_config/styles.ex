@@ -1,12 +1,30 @@
 defmodule GeoserverConfig.Styles do
   @moduledoc """
-  Handles style operations in GeoServer
+  Provides functions to manage styles in GeoServer via REST API.
+
+  Supports listing global and workspace-specific styles, creating new styles,
+  updating existing styles, and deleting styles with optional purge and recurse options.
+
+  ## Environment Variables
+
+    - `GEOSERVER_BASE_URL` — Base URL of the GeoServer instance.
+    - `GEOSERVER_USERNAME` — Username for authentication.
+    - `GEOSERVER_PASSWORD` — Password for authentication.
   """
 
   @base_url System.get_env("GEOSERVER_BASE_URL")
   @username System.get_env("GEOSERVER_USERNAME")
   @password System.get_env("GEOSERVER_PASSWORD")
 
+  @doc """
+  Lists all global styles available in GeoServer.
+
+  ## Returns
+    - `%Req.Response{}` with a JSON list of styles.
+
+  ## Example
+      GeoserverConfig.Styles.list_styles()
+  """
   @spec list_styles() :: Req.Response.t()
   def list_styles() do
     url = "#{@base_url}/styles"
@@ -18,6 +36,18 @@ defmodule GeoserverConfig.Styles do
     )
   end
 
+  @doc """
+  Lists all styles scoped to a specific workspace.
+
+  ## Parameters
+    - `workspace` (`String.t`) — The name of the workspace.
+
+  ## Returns
+    - `%Req.Response{}` containing the styles in the given workspace.
+
+  ## Example
+      GeoserverConfig.Styles.list_styles_workspace_specific("demo")
+  """
   def list_styles_workspace_specific(workspace) do
     url = "#{@base_url}/workspaces/#{workspace}/styles"
 
@@ -28,6 +58,28 @@ defmodule GeoserverConfig.Styles do
     )
   end
 
+  @doc """
+  Creates a new style in GeoServer using Geoserver REST API.
+
+  ## Parameters
+    - `opts` (`map`) — Options for creating the style:
+      - `:name` (required) — Name of the style.
+      - `:sld_content` (required) — Raw SLD XML content.
+      - `:workspace` (optional) — Target workspace for the style.
+      - `:filename` (optional) — Filename to associate with the style.
+
+  ## Returns
+    - `{:ok, message}` on success
+    - `{:error, reason}` on failure
+
+  ## Example
+      GeoserverConfig.Styles.create_style(%{
+        name: "dem_style",
+        filename: "dem_style.sld",
+        sld_content: "<StyledLayerDescriptor>...</StyledLayerDescriptor>",
+        workspace: "demo"
+      })
+  """
   @spec create_style(map()) :: {:ok, Req.Response.t()} | {:error, any()}
   def create_style(opts) do
     url = if opts[:workspace] do
@@ -63,6 +115,32 @@ defmodule GeoserverConfig.Styles do
     end
   end
 
+
+  @doc """
+  Updates an existing style's SLD content.
+
+  ## Parameters
+
+    - `opts` (`map`) — Options for updating the style:
+      - `:name` (required) — Style name to update.
+      - `:sld_content` (required) — Updated SLD XML content.
+      - `:workspace` (optional) — Workspace, if the style is workspace-scoped.
+      - `:filename` (optional) — Optional filename parameter.
+
+  ## Returns
+
+    - `{:ok, message}` on success
+    - `{:error, reason}` on failure
+
+  ## Example
+
+      GeoserverConfig.Styles.update_style(%{
+        name: "dem_style",
+        filename: "updated_dem_style.sld",
+        sld_content: "<StyledLayerDescriptor>...</StyledLayerDescriptor>",
+        workspace: "demo"
+      })
+  """
   @spec update_style(map()) :: {:ok, Req.Response.t()} | {:error, String.t() | Exception.t()}
   def update_style(opts) do
     url = if opts[:workspace] do
@@ -101,7 +179,23 @@ defmodule GeoserverConfig.Styles do
     end
   end
 
-  # DELETE Method
+  @doc """
+  Deletes a style from GeoServer.
+
+  ## Parameters
+    - `style_name` (`String.t`) — The name of the style to delete.
+    - `workspace` (`String.t`, optional) — The workspace of the style (for workspace-scoped styles).
+    - `opts` (`Keyword list`, optional):
+      - `:purge` (`boolean`) — If `true`, removes all style resources.
+      - `:recurse` (`boolean`) — Set to `true`, if style is assigned to certain layer.
+
+  ## Returns
+    - `{:ok, message}` on success
+    - `{:error, reason}` on failure
+
+  ## Example
+      GeoserverConfig.Styles.delete_style("dem_style", "demo_workspace", purge: true, recurse: true)
+  """
   def delete_style(style_name, workspace \\ nil, opts \\ []) do
     # Build base URL
     url = if workspace do

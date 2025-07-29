@@ -1,6 +1,16 @@
 defmodule GeoserverConfig.Coverages do
   @moduledoc """
-  Handles coverage creation in GeoServer with exact API specification matching.
+  Provides functionality for managing GeoServer coverages via the REST API.
+
+  This module supports creating, listing, and deleting coverages (raster data layers) in a GeoServer workspace and coverage store.
+
+  It uses exact API structure matching to configure metadata, spatial reference systems, bounding boxes, and grid settings for each coverage layer.
+
+  ## Environment Variables
+
+    - `GEOSERVER_BASE_URL` — GeoServer base URL
+    - `GEOSERVER_USERNAME` — GeoServer username
+    - `GEOSERVER_PASSWORD` — GeoServer password
   """
 
   @base_url System.get_env("GEOSERVER_BASE_URL")
@@ -8,6 +18,19 @@ defmodule GeoserverConfig.Coverages do
   @password System.get_env("GEOSERVER_PASSWORD")
 
 
+  @doc """
+  Lists all coverages for a given workspace and coverage store.
+
+  ## Parameters
+    - `workspace` (`String.t`) — Name of the workspace.
+    - `coverage_store` (`String.t`) — Name of the coverage store.
+
+  ## Returns
+    - `%Req.Response{}` containing the list of coverages.
+
+  ## Example
+      GeoserverConfig.Coverages.list_coverages("demo_workspace", "dem_store")
+  """
   @spec list_coverages(String.t(), String.t()) :: Req.Response.t()
   def list_coverages(workspace, coverage_store) do
     url = "#{@base_url}/workspaces/#{workspace}/coveragestores/#{coverage_store}/coverages"
@@ -19,7 +42,47 @@ defmodule GeoserverConfig.Coverages do
     )
   end
 
+  @doc """
+  Creates a new coverage (raster layer) in the specified coverage store.
 
+  ## Parameters
+    - `workspace` (`String.t`) — The workspace name.
+    - `coverage_store` (`String.t`) — The coverage store name.
+    - `coverage_name` (`String.t`) — Desired name of the coverage.
+    - `params` (`map`) — Metadata and configuration for the coverage. Should include:
+      - `:title`, `:srs`, `:native_bbox`, `:latlon_bbox`, `:grid`
+      - Optional: `:description`, `:abstract`, `:native_crs`, `:metadata`, `:enabled`
+    - `file_path` (`String.t`) — URL or file path of the GeoTIFF/COG.
+
+  ## Returns
+    - `{:ok, message}` on success
+    - `{:error, reason}` on failure
+
+  ## Example
+      GeoserverConfig.Coverages.create_coverage(
+        "demo_workspace",
+        "dem_store",
+        "dem_coverage_layer",
+        %{
+          title: "dem_coverage_layer",
+          description: "Testing Layers for Geotiff",
+          abstract: "Testing the Coverage Layer POST Method",
+          srs: "EPSG:3301",
+          native_crs: "EPSG:3301",
+          native_bbox: %{minx: 369000.0, maxx: 740000.0, miny: 6377000.0, maxy: 6635000.0},
+          latlon_bbox: %{minx: 21.664072036889028, maxx: 28.275493984062805, miny: 57.47121886444548, maxy: 59.83122737438482},
+          grid: %{
+            dimension: [634, 477],
+            transform: [10.0, 0.0, 369000.0, 0.0, -10.0, 6635000.0]
+          },
+          metadata: %{
+            "cacheAgeMax" => 3600,
+            "cachingEnabled" => true
+          }
+        },
+        "file:///data/dem.tif"
+      )
+  """
   @spec create_coverage(String.t(), String.t(), String.t(), map(), String.t()) :: {:ok, map()} | {:error, String.t()}
   def create_coverage(workspace, coverage_store, coverage_name, params, file_path) do
     payload = build_payload(workspace, coverage_store, coverage_name, params, file_path)
@@ -145,34 +208,49 @@ defmodule GeoserverConfig.Coverages do
     }
   end
 
-   # DELETE Method
-    def delete_coverage(workspace, coverage_store, coverage_name, recurse \\ false) do
-      url = "#{@base_url}/workspaces/#{workspace}/coveragestores/#{coverage_store}/coverages/#{coverage_name}"
+  @doc """
+  Deletes a coverage layer from a workspace and coverage store.
 
-      query_params = if recurse do
-        [{"recurse", "true"}]
-      else
-        []
-      end
+  ## Parameters
+    - `workspace` (`String.t`) — The workspace name.
+    - `coverage_store` (`String.t`) — The coverage store name.
+    - `coverage_name` (`String.t`) — The name of the coverage to delete.
+    - `recurse` (`boolean`, optional) — If `true`, deletes linked resources as well.
 
-      case Req.delete(
-            url,
-            auth: {:basic, "#{@username}:#{@password}"},
-            headers: [{"Accept", "application/json"}],
-            params: query_params
-          ) do
-        {:ok, %Req.Response{status: 200}} ->
-          {:ok, "Coverage '#{coverage_name}' deleted successfully."}
+  ## Returns
+    - `{:ok, message}` on success
+    - `{:error, reason}` on failure
 
-        {:ok, %Req.Response{status: 404}} ->
-          {:error, "Coverage '#{coverage_name}' not found."}
+  ## Example
+      GeoserverConfig.Coverages.delete_coverage("demo_workspace", "dem_store", "dem_layer", true)
+  """
+  def delete_coverage(workspace, coverage_store, coverage_name, recurse \\ false) do
+    url = "#{@base_url}/workspaces/#{workspace}/coveragestores/#{coverage_store}/coverages/#{coverage_name}"
 
-        {:ok, %Req.Response{status: status}} ->
-          {:error, "Failed to delete coverage. Status: #{status}, Response: Check if workspace, coveragestore exists and is correctly passed}"}
-
-        {:error, reason} ->
-          {:error, "Request error during coverage deletion: #{inspect(reason)}"}
-      end
+    query_params = if recurse do
+      [{"recurse", "true"}]
+    else
+      []
     end
+
+    case Req.delete(
+          url,
+          auth: {:basic, "#{@username}:#{@password}"},
+          headers: [{"Accept", "application/json"}],
+          params: query_params
+        ) do
+      {:ok, %Req.Response{status: 200}} ->
+        {:ok, "Coverage '#{coverage_name}' deleted successfully."}
+
+      {:ok, %Req.Response{status: 404}} ->
+        {:error, "Coverage '#{coverage_name}' not found."}
+
+      {:ok, %Req.Response{status: status}} ->
+        {:error, "Failed to delete coverage. Status: #{status}, Response: Check if workspace, coveragestore exists and is correctly passed}"}
+
+      {:error, reason} ->
+        {:error, "Request error during coverage deletion: #{inspect(reason)}"}
+    end
+  end
 
 end

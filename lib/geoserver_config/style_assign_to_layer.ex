@@ -1,12 +1,40 @@
 defmodule GeoserverConfig.StyleAssignToLayer do
   @moduledoc """
-  Assigns a style to a coverage layer as its default style, only if the style exists.
+  Provides functionality to assign a style to a coverage layer in GeoServer.
+
+  This module ensures that the specified style exists either globally or in a specific
+  workspace before attempting to assign it as the default style for a given layer.
+
+  ## Environment Variables
+
+    - `GEOSERVER_BASE_URL` — The base URL of the GeoServer instance.
+    - `GEOSERVER_USERNAME` — Username used for authentication.
+    - `GEOSERVER_PASSWORD` — Password used for authentication.
   """
 
   @base_url System.get_env("GEOSERVER_BASE_URL")
   @username System.get_env("GEOSERVER_USERNAME")
   @password System.get_env("GEOSERVER_PASSWORD")
 
+
+  @doc """
+  Assigns a style to a layer as its default style, only if the style exists.
+
+  ## Parameters
+    - `workspace` (`String.t`) — The workspace in which the layer resides.
+    - `layer_name` (`String.t`) — The name of the layer to assign the style to.
+    - `style_name` (`String.t`) — The name of the style to assign.
+    - `style_workspace` (`String.t` | `nil`) — The workspace of the style (optional).
+
+  ## Returns
+    - `{:ok, message}` if the style was successfully assigned.
+    - `{:error, reason}` if the style doesn't exist or assignment failed.
+
+  ## Examples
+      GeoserverConfig.StyleAssignToLayer.assign_style_to_layer("demo_workspace", "demo_layer", "dem_style")
+      GeoserverConfig.StyleAssignToLayer.assign_style_to_layer("demo_workspace", "demo_layer", "dem_style", "dem_style_workspace")
+
+  """
   @spec assign_style_to_layer(String.t(), String.t(), String.t(), String.t() | nil) :: {:ok, String.t()} | {:error, String.t()}
   def assign_style_to_layer(workspace, layer_name, style_name, style_workspace \\ nil) do
     # First, attempt to find the style exactly where specified (or globally if nil)
@@ -30,6 +58,7 @@ defmodule GeoserverConfig.StyleAssignToLayer do
     end
   end
 
+  @doc false
   defp check_style_existence_in_workspace(style_name, style_workspace) do
     url = "#{@base_url}/workspaces/#{style_workspace}/styles/#{style_name}.json"
     case Req.get(url, auth: {:basic, "#{@username}:#{@password}"}, decode_body: false) do
@@ -44,6 +73,7 @@ defmodule GeoserverConfig.StyleAssignToLayer do
     end
   end
 
+  @doc false
   defp check_global_style_existence(style_name) do
     url = "#{@base_url}/styles/#{style_name}.json"
     case Req.get(url, auth: {:basic, "#{@username}:#{@password}"}, decode_body: false) do
@@ -58,6 +88,7 @@ defmodule GeoserverConfig.StyleAssignToLayer do
     end
   end
 
+  @doc false
   defp assign_style(workspace, layer_name, style_name, style_workspace) do
     url = "#{@base_url}/workspaces/#{workspace}/layers/#{layer_name}"
 
