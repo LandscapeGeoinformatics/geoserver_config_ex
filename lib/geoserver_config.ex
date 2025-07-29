@@ -1,6 +1,16 @@
 defmodule GeoserverConfig do
   @moduledoc """
-  Documentation for `GeoserverConfig`.
+  Top-level API module for interacting with a GeoServer instance via REST.
+
+  This module aggregates the functionality from the internal modules and provides
+  a clean, centralized interface to:
+
+    - Manage workspaces
+    - Handle datastores (PostGIS, GeoPackage, etc.)
+    - Manage coverage stores and coverages (GeoTIFF, COGs)
+    - Manage styles (SLD-based)
+    - Assign styles to layers
+    - Manage layer groups
   """
   alias GeoserverConfig.Coveragestores
   alias GeoserverConfig.{Workspaces, Datastores}
