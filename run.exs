@@ -103,7 +103,7 @@
 # IO.inspect(response)
 
 # GET Method: List of Coverages
-# response = GeoserverConfig.list_coverages("demo_test", "dem_3x3_test")
+# response = GeoserverConfig.Coverages.list_coverages("sf", "sfdem")
 # IO.inspect(response)
 
 # POST Method: Creation of Coverage Layers
@@ -140,11 +140,11 @@
 # IO.inspect(response)
 
 # GET Method: Styles
-# response = GeoserverConfig.list_styles()
+# response = GeoserverConfig.Styles.list_styles()
 # IO.inspect(response)
 
 # # GET Method: Styles (Workspace Specific)
-# response = GeoserverConfig.list_styles_workspace_specific("demo_test")
+# response = GeoserverConfig.list_styles_workspace_specific("ne")
 # IO.inspect(response)
 
 # POST Method: Styles

@@ -1,13 +1,31 @@
 defmodule GeoserverConfig.Workspaces do
   @moduledoc """
-  A module for interacting with GeoServer workspaces.
+  Provides functions for interacting with GeoServer workspaces via its REST API.
+
+  This module supports fetching the list of workspaces, creating a new workspace,
+  deleting an existing one, and updating the name of a workspace. Authentication is handled
+  using basic auth credentials set in the environment variables.
+
+  ## Environment Variables
+
+    - `GEOSERVER_BASE_URL` — Base URL of the GeoServer instance
+    - `GEOSERVER_USERNAME` — Username for authentication
+    - `GEOSERVER_PASSWORD` — Password for authentication
   """
 
   @base_url System.get_env("GEOSERVER_BASE_URL")
   @username System.get_env("GEOSERVER_USERNAME")
   @password System.get_env("GEOSERVER_PASSWORD")
 
-  # GET: Fetch list of workspaces
+  @doc """
+  Fetches the list of all available workspaces from the GeoServer.
+
+  ## Returns
+    - `%Req.Response{}` struct with the response from GeoServer
+
+  ## Example
+      GeoserverConfig.Workspaces.fetch_workspaces()
+  """
   def fetch_workspaces do
     url = "#{@base_url}/workspaces"
 
@@ -18,7 +36,18 @@ defmodule GeoserverConfig.Workspaces do
     )
   end
 
-  # POST: Create a new workspace
+  @doc """
+  Creates a new workspace in the GeoServer.
+
+  ## Parameters
+    - `workspace_name` (`String.t`) — The name of the workspace to be created.
+
+  ## Output
+    - Prints success or failure message to the console.
+
+  ## Example
+      GeoserverConfig.Workspaces.create_workspace("demo_workspace")
+  """
   def create_workspace(workspace_name) do
     url = "#{@base_url}/workspaces"
 
@@ -38,7 +67,18 @@ defmodule GeoserverConfig.Workspaces do
     end
   end
 
-  # DELETE: Delete a workspace
+  @doc """
+  Deletes an existing workspace from the GeoServer.
+
+  ## Parameters
+    - `workspace_name` (`String.t`) — The name of the workspace to be deleted.
+
+  ## Output
+    - Prints success or failure message to the console.
+
+  ## Example
+      GeoserverConfig.Workspaces.delete_workspace("demo_workspace")
+  """
   def delete_workspace(workspace_name) do
     url = "#{@base_url}/workspaces/#{workspace_name}"
 
@@ -54,7 +94,19 @@ defmodule GeoserverConfig.Workspaces do
     end
   end
 
-  # PUT: Update an existing workspace
+  @doc """
+  Updates the name of an existing workspace in the GeoServer.
+
+  ## Parameters
+    - `old_workspace_name` (`String.t`) — Current name of the workspace.
+    - `new_workspace_name` (`String.t`) — New desired name of the workspace.
+
+  ## Output
+    - Prints success or failure message to the console.
+
+  ## Example
+      GeoserverConfig.Workspaces.update_workspace("old_ws", "new_ws")
+  """
   def update_workspace(old_workspace_name, new_workspace_name) do
     url = "#{@base_url}/workspaces/#{old_workspace_name}"
 

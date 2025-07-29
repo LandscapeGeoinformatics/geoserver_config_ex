@@ -1,13 +1,42 @@
 defmodule GeoserverConfig.Datastores do
   @moduledoc """
-  A module for interacting with GeoServer datastores.
+  Provides functions to manage GeoServer datastores via its REST API.
+
+  This module allows you to list, create, update, and delete datastores within a specific
+  GeoServer workspace. It supports multiple datastore types including PostGIS, GeoPackage,
+  Shapefile, and WFS. Authentication is handled using basic auth credentials provided
+  via environment variables.
+
+  ## Supported Datastore Types
+
+    - `"postgis"` — PostgreSQL/PostGIS datastore
+    - `"geopkg"` — GeoPackage file
+    - `"shapefile"` — Shapefile (local or remote)
+    - `"wfs"` — Web Feature Service
+
+  ## Environment Variables
+
+    - `GEOSERVER_BASE_URL` — Base URL of the GeoServer instance
+    - `GEOSERVER_USERNAME` — Username for authentication
+    - `GEOSERVER_PASSWORD` — Password for authentication
   """
 
   @base_url System.get_env("GEOSERVER_BASE_URL")
   @username System.get_env("GEOSERVER_USERNAME")
   @password System.get_env("GEOSERVER_PASSWORD")
 
-  # GET: List datastores for a specific workspace
+  @doc """
+  Lists all datastores in the given workspace.
+
+  ## Parameters
+    - `workspace` (`String.t`) — The name of the workspace to list datastores from.
+
+  ## Returns
+    - `%Req.Response{}` with JSON response body containing datastore list.
+
+  ## Example
+      GeoserverConfig.Datastores.list_datastores("demo_workspace")
+  """
   def list_datastores(workspace) do
     url = "#{@base_url}/workspaces/#{workspace}/datastores"
 
@@ -18,7 +47,28 @@ defmodule GeoserverConfig.Datastores do
     )
   end
 
-  # POST: Create a new datastore
+  @doc """
+  Creates a new datastore in the specified workspace.
+
+  ## Parameters
+    - `workspace` (`String.t`) — The workspace name.
+    - `name` (`String.t`) — The name for the new datastore.
+    - `type` (`String.t`) — The datastore type (e.g., `"postgis"`, `"geopkg"`).
+    - `connection_params` (`map`) — Connection parameters specific to the datastore type.
+
+  ## Returns
+    - `{:ok, "Datastore created successfully"}` on success.
+    - `{:error, reason}` on failure.
+
+  ## Example
+      GeoserverConfig.Datastores.create_datastore("demo_workspace", "my_store", "postgis", %{
+        host: "localhost",
+        port: 5432,
+        database: "gis",
+        user: "admin",
+        passwd: "secret"
+      })
+  """
   def create_datastore(workspace, name, type, connection_params) do
     url = "#{@base_url}/workspaces/#{workspace}/datastores"
 
@@ -52,7 +102,7 @@ defmodule GeoserverConfig.Datastores do
     end
   end
 
-
+  @doc false
   # Private method to format the connection parameters based on the datastore type
   defp format_connection_params("geopkg", %{database: db_path}) do
     %{"entry" => [
@@ -81,7 +131,21 @@ defmodule GeoserverConfig.Datastores do
     %{"entry" => [%{"@key" => "GET_CAPABILITIES_URL", "$" => url}]}
   end
 
-  # PUT: Update an existing datastore
+  @doc """
+  Updates an existing datastore's configuration.
+
+  ## Parameters
+    - `workspace` (`String.t`) — The workspace name.
+    - `datastore_name` (`String.t`) — The name of the datastore to update.
+    - `datastore_type` (`String.t`) — Type of the datastore (`"postgis"`, `"geopkg"`, etc.).
+    - `connection_params` (`map`) — New connection parameters.
+
+  ## Output
+    - Prints success or failure message to the console.
+
+  ## Example
+      GeoserverConfig.Datastores.update_datastore("demo_workspace", "my_store", "postgis", %{...})
+  """
   def update_datastore(workspace, datastore_name, datastore_type, connection_params) do
     url = "#{@base_url}/workspaces/#{workspace}/datastores/#{datastore_name}"
 
@@ -106,7 +170,20 @@ defmodule GeoserverConfig.Datastores do
     end
   end
 
-  # DELETE: Remove a datastore
+  @doc """
+  Deletes a datastore from the given workspace.
+
+  ## Parameters
+    - `workspace` (`String.t`) — The workspace name.
+    - `datastore_name` (`String.t`) — Name of the datastore to delete.
+    - `recurse` (`boolean`, optional) — Whether to also delete associated resources (default: `false`).
+
+  ## Output
+    - Prints success or failure message to the console.
+
+  ## Example
+      GeoserverConfig.Datastores.delete_datastore("demo_workspace", "my_store", true)
+  """
   def delete_datastore(workspace, datastore_name, recurse \\ false) do
     recurse_param = if recurse, do: "true", else: "false"
     url = "#{@base_url}/workspaces/#{workspace}/datastores/#{datastore_name}?recurse=#{recurse_param}"
