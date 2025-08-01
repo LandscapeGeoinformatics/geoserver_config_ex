@@ -232,15 +232,15 @@
 
 
 # LayerGroups GET Method
-# response = GeoserverConfig.list_layer_groups().body
-# IO.inspect(response)
+response = GeoserverConfig.list_layer_groups().body
+IO.inspect(response)
 
 
 # LayerGroups POST Method
 # xml_body = """
 # <?xml version="1.0" encoding="UTF-8"?>
 # <layerGroup>
-#   <name>demo_test_layergroup123</name>
+#   <name>demo_test_layergroup1234</name>
 #   <mode>SINGLE</mode>
 #   <title>Demo Layer Group</title>
 #   <abstractTxt>A description here</abstractTxt>
@@ -284,18 +284,62 @@
 # IO.inspect(response)
 
 
-# LayerGroups PUT Method
+# json_body = %{
+#   "layerGroup" => %{
+#     "name" => "demo_test_layergroup12345",
+#     "mode" => "SINGLE",
+#     "title" => "Demo Layer Group",
+#     "abstractTxt" => "A description here",
+#     "publishables" => %{
+#       "published" => [
+#         %{"@type" => "layer", "name" => "sf:sfdem"},
+#         %{"@type" => "layer", "name" => "sf:streams"}
+#       ]
+#     },
+#     "styles" => %{
+#       "style" => [
+#         %{"name" => "sf:dem"},
+#         %{"name" => "sf:simple_streams"}
+#       ]
+#     },
+#     "metadataLinks" => %{
+#       "metadataLink" => [
+#         %{
+#           "type" => "text/xml",
+#           "metadataType" => "FGDC",
+#           "content" => "http://example.com/metadata.xml"
+#         }
+#       ]
+#     },
+#     "bounds" => %{
+#       "minx" => -180,
+#       "maxx" => 180,
+#       "miny" => -90,
+#       "maxy" => 90,
+#       "crs" => "EPSG:4326"
+#     },
+#     "keywords" => %{
+#       "string" => ["example"]
+#     }
+#   }
+# }
+
+# response = GeoserverConfig.create_layer_group(json_body)
+# IO.inspect(response)
+
+
+# LayerGroups PUT Method using XML
 # xml_update_body = """
 # <?xml version="1.0" encoding="UTF-8"?>
 # <layerGroup>
-#   <name>demo_test_layergroup123</name>
+#   <name>demo_test_layergroup1234</name>
 #   <mode>SINGLE</mode>
 #   <title>Updated Title</title>
 #   <abstractTxt>Updated description</abstractTxt>
 #   <publishables>
 #     <published type="layer">
 #       <name>sf:sfdem</name>
-#       </published>
+#     </published>
 #     <published type="layer">
 #       <name>sf:roads</name>
 #     </published>
@@ -306,13 +350,13 @@
 #   <styles>
 #     <style>
 #       <name>sf:dem</name>
-#       </style>
+#     </style>
 #     <style>
 #       <name>sf:simple_roads</name>
-#       </style>
+#     </style>
 #     <style>
 #       <name>sf:restricted</name>
-#       </style>
+#     </style>
 #   </styles>
 #   <metadataLinks>
 #     <metadataLink>
@@ -329,13 +373,62 @@
 #     <crs>EPSG:4326</crs>
 #   </bounds>
 #   <keywords>
-#     <string>updated</string> </keywords>
+#     <string>updated</string>
+#   </keywords>
 # </layerGroup>
 # """
 
-# response = GeoserverConfig.update_layer_group("demo_test_layergroup123", xml_update_body)
+# response = GeoserverConfig.update_layer_group("demo_test_layergroup1234", xml_update_body)
 # IO.inspect(response)
 
+
+# Layergroup PUT Method using JSON
+# json_update_body = %{
+#   "layerGroup" => %{
+#     "name" => "demo_test_layergroup12345",
+#     "mode" => "SINGLE",
+#     "title" => "Updated ZEE Title",
+#     "abstractTxt" => "Updated ZEE description",
+#     "publishables" => %{
+#       "published" => [
+#         %{"@type" => "layer", "name" => "sf:sfdem"},
+#         %{"@type" => "layer", "name" => "sf:roads"},
+#         %{"@type" => "layer", "name" => "sf:restricted"}
+#       ]
+#     },
+#     "styles" => %{
+#       "style" => [
+#         %{"name" => "sf:dem"},
+#         %{"name" => "sf:simple_roads"},
+#         %{"name" => "sf:restricted"}
+#       ]
+#     },
+#     "metadataLinks" => %{
+#       "metadataLink" => [
+#         %{
+#           "type" => "text/xml",
+#           "metadataType" => "FGDC",
+#           "content" => "http://example.com/metadata.xml"
+#         }
+#       ]
+#     },
+#     "bounds" => %{
+#       "minx" => -180,
+#       "maxx" => 180,
+#       "miny" => -90,
+#       "maxy" => 90,
+#       "crs" => "EPSG:4326"
+#     },
+#     "keywords" => %{
+#       "string" => ["updated"]
+#     }
+#   }
+# }
+
+# response_json = GeoserverConfig.update_layer_group("demo_test_layergroup12345", json_update_body)
+# IO.inspect(response_json)
+
+
 # LayerGroups DELETE Method
-# response = GeoserverConfig.delete_layer_group("demo_test_layergroup123")
+# response = GeoserverConfig.delete_layer_group("demo_test_layergroup12345")
 # IO.inspect(response)
