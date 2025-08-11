@@ -63,5 +63,8 @@ defmodule GeoserverConfig do
   defdelegate create_layer_group(xml_body), to: LayerGroups
   defdelegate update_layer_group(name, xml_body), to: LayerGroups
   defdelegate delete_layer_group(name), to: LayerGroups
+  defdelegate add_layer_to_group(group_name, layer_name, style_name \\ nil), to: LayerGroups
+  defdelegate remove_layer_from_group(group_name, layer_name), to: LayerGroups
+
 
 end

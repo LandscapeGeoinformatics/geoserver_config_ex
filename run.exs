@@ -432,3 +432,11 @@ IO.inspect(response)
 # LayerGroups DELETE Method
 # response = GeoserverConfig.delete_layer_group("demo_test_layergroup12345")
 # IO.inspect(response)
+
+# Adding Layer to LayerGroup
+# response = GeoserverConfig.add_layer_to_group("my_group", "sf:layer1", "sf:style1")
+# IO.inspect(response)
+
+# Removing Layer to LayerGroup
+# response = GeoserverConfig.remove_layer_from_group("my_group", "sf:layer1")
+# IO.inspect(response)
