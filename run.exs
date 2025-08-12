@@ -3,7 +3,7 @@
 # IO.inspect(response)
 
 # Workspace POST Method
-# response = GeoserverConfig.Workspaces.create_workspace("new_workspace_name")
+# response = GeoserverConfig.Workspaces.create_workspace("demo_test")
 # IO.inspect(response)
 
 # Workspace PUT Method (Its unautorized to change the name of Workspace, but If you use the same name then it gets updated(no use at all)).
@@ -54,7 +54,7 @@
 # CoverageStore POST Method
 # response = GeoserverConfig.Coveragestores.create_coveragestore(
 #   "demo_test",        # Workspace name
-#   "dem_3x3_test123",     # Coverage store name
+#   "dem_3x3_test",     # Coverage store name
 #   "file:///home/geoadmin/run/ut_sdi_2021/SDI/dems/dem_3x3.tif",  # Local GeoTIFF file path
 #   "A description of the coverage store" # Coverage store description
 # )
@@ -181,7 +181,7 @@
 # """
 
 # response = GeoserverConfig.Styles.create_style(%{
-#   name: "dem_test_style1",
+#   name: "dem_test_style",
 #   sld_content: sld_content,
 #   filename: "dem.sld",
 #   #workspace: "demo_test" #This line defines if you want the style Workspace specific or without Workspace
@@ -228,4 +228,215 @@
 
 # PUT Method Style to Layer
 # response = GeoserverConfig.assign_style_to_layer("demo_test", "dem_test_coverage1", "dem_test_style", "demo_test")
+# IO.inspect(response)
+
+
+# LayerGroups GET Method
+response = GeoserverConfig.list_layer_groups().body
+IO.inspect(response)
+
+
+# LayerGroups POST Method
+# xml_body = """
+# <?xml version="1.0" encoding="UTF-8"?>
+# <layerGroup>
+#   <name>demo_test_layergroup1234</name>
+#   <mode>SINGLE</mode>
+#   <title>Demo Layer Group</title>
+#   <abstractTxt>A description here</abstractTxt>
+#   <publishables>
+#     <published type="layer">
+#       <name>sf:sfdem</name>
+#     </published>
+#     <published type="layer">
+#       <name>sf:streams</name>
+#     </published>
+#   </publishables>
+#   <styles>
+#     <style>
+#       <name>sf:dem</name>
+#     </style>
+#     <style>
+#       <name>sf:simple_streams</name>
+#     </style>
+#   </styles>
+#   <metadataLinks>
+#     <metadataLink>
+#       <type>text/xml</type>
+#       <metadataType>FGDC</metadataType>
+#       <content>http://example.com/metadata.xml</content>
+#     </metadataLink>
+#   </metadataLinks>
+#   <bounds>
+#     <minx>-180</minx>
+#     <maxx>180</maxx>
+#     <miny>-90</miny>
+#     <maxy>90</maxy>
+#     <crs>EPSG:4326</crs>
+#   </bounds>
+#   <keywords>
+#     <string>example</string>
+#   </keywords>
+# </layerGroup>
+# """
+
+# response = GeoserverConfig.create_layer_group(xml_body)
+# IO.inspect(response)
+
+
+# json_body = %{
+#   "layerGroup" => %{
+#     "name" => "demo_test_layergroup12345",
+#     "mode" => "SINGLE",
+#     "title" => "Demo Layer Group",
+#     "abstractTxt" => "A description here",
+#     "publishables" => %{
+#       "published" => [
+#         %{"@type" => "layer", "name" => "sf:sfdem"},
+#         %{"@type" => "layer", "name" => "sf:streams"}
+#       ]
+#     },
+#     "styles" => %{
+#       "style" => [
+#         %{"name" => "sf:dem"},
+#         %{"name" => "sf:simple_streams"}
+#       ]
+#     },
+#     "metadataLinks" => %{
+#       "metadataLink" => [
+#         %{
+#           "type" => "text/xml",
+#           "metadataType" => "FGDC",
+#           "content" => "http://example.com/metadata.xml"
+#         }
+#       ]
+#     },
+#     "bounds" => %{
+#       "minx" => -180,
+#       "maxx" => 180,
+#       "miny" => -90,
+#       "maxy" => 90,
+#       "crs" => "EPSG:4326"
+#     },
+#     "keywords" => %{
+#       "string" => ["example"]
+#     }
+#   }
+# }
+
+# response = GeoserverConfig.create_layer_group(json_body)
+# IO.inspect(response)
+
+
+# LayerGroups PUT Method using XML
+# xml_update_body = """
+# <?xml version="1.0" encoding="UTF-8"?>
+# <layerGroup>
+#   <name>demo_test_layergroup1234</name>
+#   <mode>SINGLE</mode>
+#   <title>Updated Title</title>
+#   <abstractTxt>Updated description</abstractTxt>
+#   <publishables>
+#     <published type="layer">
+#       <name>sf:sfdem</name>
+#     </published>
+#     <published type="layer">
+#       <name>sf:roads</name>
+#     </published>
+#     <published type="layer">
+#       <name>sf:restricted</name>
+#     </published>
+#   </publishables>
+#   <styles>
+#     <style>
+#       <name>sf:dem</name>
+#     </style>
+#     <style>
+#       <name>sf:simple_roads</name>
+#     </style>
+#     <style>
+#       <name>sf:restricted</name>
+#     </style>
+#   </styles>
+#   <metadataLinks>
+#     <metadataLink>
+#       <type>text/xml</type>
+#       <metadataType>FGDC</metadataType>
+#       <content>http://example.com/metadata.xml</content>
+#     </metadataLink>
+#   </metadataLinks>
+#   <bounds>
+#     <minx>-180</minx>
+#     <maxx>180</maxx>
+#     <miny>-90</miny>
+#     <maxy>90</maxy>
+#     <crs>EPSG:4326</crs>
+#   </bounds>
+#   <keywords>
+#     <string>updated</string>
+#   </keywords>
+# </layerGroup>
+# """
+
+# response = GeoserverConfig.update_layer_group("demo_test_layergroup1234", xml_update_body)
+# IO.inspect(response)
+
+
+# Layergroup PUT Method using JSON
+# json_update_body = %{
+#   "layerGroup" => %{
+#     "name" => "demo_test_layergroup12345",
+#     "mode" => "SINGLE",
+#     "title" => "Updated ZEE Title",
+#     "abstractTxt" => "Updated ZEE description",
+#     "publishables" => %{
+#       "published" => [
+#         %{"@type" => "layer", "name" => "sf:sfdem"},
+#         %{"@type" => "layer", "name" => "sf:roads"},
+#         %{"@type" => "layer", "name" => "sf:restricted"}
+#       ]
+#     },
+#     "styles" => %{
+#       "style" => [
+#         %{"name" => "sf:dem"},
+#         %{"name" => "sf:simple_roads"},
+#         %{"name" => "sf:restricted"}
+#       ]
+#     },
+#     "metadataLinks" => %{
+#       "metadataLink" => [
+#         %{
+#           "type" => "text/xml",
+#           "metadataType" => "FGDC",
+#           "content" => "http://example.com/metadata.xml"
+#         }
+#       ]
+#     },
+#     "bounds" => %{
+#       "minx" => -180,
+#       "maxx" => 180,
+#       "miny" => -90,
+#       "maxy" => 90,
+#       "crs" => "EPSG:4326"
+#     },
+#     "keywords" => %{
+#       "string" => ["updated"]
+#     }
+#   }
+# }
+
+# response_json = GeoserverConfig.update_layer_group("demo_test_layergroup12345", json_update_body)
+# IO.inspect(response_json)
+
+
+# LayerGroups DELETE Method
+# response = GeoserverConfig.delete_layer_group("demo_test_layergroup12345")
+# IO.inspect(response)
+
+# Adding Layer to LayerGroup
+# response = GeoserverConfig.add_layer_to_group("my_group", "sf:layer1", "sf:style1")
+# IO.inspect(response)
+
+# Removing Layer to LayerGroup
+# response = GeoserverConfig.remove_layer_from_group("my_group", "sf:layer1")
 # IO.inspect(response)
