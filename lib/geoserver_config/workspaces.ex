@@ -26,14 +26,27 @@ defmodule GeoserverConfig.Workspaces do
   ## Example
       GeoserverConfig.Workspaces.fetch_workspaces()
   """
+
   def fetch_workspaces do
     url = "#{@base_url}/workspaces"
 
-    Req.get!(
-      url,
-      auth: {:basic, "#{@username}:#{@password}"},
-      headers: [{"Accept", "application/json"}]
-    )
+    case Req.get(url,
+          auth: {:basic, "#{@username}:#{@password}"},
+          headers: [{"Accept", "application/json"}]
+        ) do
+      {:ok, %Req.Response{status: 200, body: %{"workspaces" => %{"workspace" => workspaces}}}}
+      when is_list(workspaces) ->
+        {:ok, workspaces}
+
+      {:ok, %Req.Response{status: 200, body: %{"workspaces" => _}}} ->
+        {:ok, []}
+
+      {:ok, %Req.Response{status: status, body: body}} ->
+        {:error, {:http_error, status, body}}
+
+      {:error, exception} ->
+        {:error, {:request_failed, Exception.message(exception)}}
+    end
   end
 
   @doc """

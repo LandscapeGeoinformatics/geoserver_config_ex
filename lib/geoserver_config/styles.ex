@@ -25,15 +25,27 @@ defmodule GeoserverConfig.Styles do
   ## Example
       GeoserverConfig.Styles.list_styles()
   """
-  @spec list_styles() :: Req.Response.t()
-  def list_styles() do
+  @spec list_styles() :: {:ok, list()} | {:error, any()}
+  def list_styles do
     url = "#{@base_url}/styles"
 
-    Req.get!(
-      url,
-      auth: {:basic, "#{@username}:#{@password}"},
-      headers: [{"Accept", "application/json"}]
-    )
+    case Req.get(
+          url,
+          auth: {:basic, "#{@username}:#{@password}"},
+          headers: [{"Accept", "application/json"}]
+        ) do
+      {:ok, %{status: 200, body: %{"styles" => %{"style" => styles}}}} when is_list(styles) ->
+        {:ok, styles}
+
+      {:ok, %{status: 200, body: %{"styles" => %{}}}} ->
+        {:ok, []}
+
+      {:ok, %{status: status, body: body}} ->
+        {:error, {:http_error, status, body}}
+
+      {:error, reason} ->
+        {:error, {:request_failed, reason}}
+    end
   end
 
   @doc """
@@ -48,14 +60,27 @@ defmodule GeoserverConfig.Styles do
   ## Example
       GeoserverConfig.Styles.list_styles_workspace_specific("demo")
   """
+  @spec list_styles_workspace_specific(String.t()) :: {:ok, list()} | {:error, any()}
   def list_styles_workspace_specific(workspace) do
     url = "#{@base_url}/workspaces/#{workspace}/styles"
 
-    Req.get!(
-      url,
-      auth: {:basic, "#{@username}:#{@password}"},
-      headers: [{"Accept", "application/json"}]
-    )
+    case Req.get(
+          url,
+          auth: {:basic, "#{@username}:#{@password}"},
+          headers: [{"Accept", "application/json"}]
+        ) do
+      {:ok, %{status: 200, body: %{"styles" => %{"style" => styles}}}} when is_list(styles) ->
+        {:ok, styles}
+
+      {:ok, %{status: 200, body: %{"styles" => %{}}}} ->
+        {:ok, []}
+
+      {:ok, %{status: status, body: body}} ->
+        {:error, {:http_error, status, body}}
+
+      {:error, reason} ->
+        {:error, {:request_failed, reason}}
+    end
   end
 
   @doc """

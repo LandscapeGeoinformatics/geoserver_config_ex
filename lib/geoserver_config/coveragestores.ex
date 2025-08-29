@@ -30,14 +30,33 @@ defmodule GeoserverConfig.Coveragestores do
   ## Example
       GeoserverConfig.Coveragestores.list_coveragestores("demo_workspace")
   """
+
   def list_coveragestores(workspace) do
     url = "#{@base_url}/workspaces/#{workspace}/coveragestores"
 
-    Req.get!(
-      url,
-      auth: {:basic, "#{@username}:#{@password}"},
-      headers: [{"Accept", "application/json"}]
-    )
+    case Req.get(
+          url,
+          auth: {:basic, "#{@username}:#{@password}"},
+          headers: [{"Accept", "application/json"}]
+        ) do
+      {:ok, %{status: 200, body: body}} ->
+        case body do
+          %{"coverageStores" => %{"coverageStore" => stores}} when is_list(stores) ->
+            {:ok, stores}
+
+          %{"coverageStores" => %{}} ->
+            {:ok, []}
+
+          _ ->
+            {:error, :unexpected_format, body}
+        end
+
+      {:ok, %{status: status, body: body}} ->
+        {:error, {:http_error, status, body}}
+
+      {:error, reason} ->
+        {:error, {:request_failed, reason}}
+    end
   end
 
 @doc """

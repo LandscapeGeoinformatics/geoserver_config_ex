@@ -37,14 +37,41 @@ defmodule GeoserverConfig.Datastores do
   ## Example
       GeoserverConfig.Datastores.list_datastores("demo_workspace")
   """
+  # def list_datastores(workspace) do
+  #   url = "#{@base_url}/workspaces/#{workspace}/datastores"
+
+  #   Req.get!(
+  #     url,
+  #     auth: {:basic, "#{@username}:#{@password}"},
+  #     headers: [{"Accept", "application/json"}]
+  #   )
+  # end
+
   def list_datastores(workspace) do
     url = "#{@base_url}/workspaces/#{workspace}/datastores"
 
-    Req.get!(
-      url,
-      auth: {:basic, "#{@username}:#{@password}"},
-      headers: [{"Accept", "application/json"}]
-    )
+    case Req.get(
+          url,
+          auth: {:basic, "#{@username}:#{@password}"},
+          headers: [{"accept", "application/json"}]
+        ) do
+      {:ok, %Req.Response{status: 200, body: %{"dataStores" => %{"dataStore" => stores}}}}
+      when is_list(stores) ->
+        {:ok, stores}
+
+      {:ok, %Req.Response{status: 200, body: %{"dataStores" => %{"dataStore" => store}}}}
+      when is_map(store) ->
+        {:ok, [store]}
+
+      {:ok, %Req.Response{status: 200, body: %{"dataStores" => _}}} ->
+        {:ok, []}
+
+      {:ok, %Req.Response{status: status, body: body}} ->
+        {:error, {:http_error, status, body}}
+
+      {:error, exception} ->
+        {:error, exception}
+    end
   end
 
   @doc """

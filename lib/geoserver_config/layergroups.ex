@@ -26,15 +26,27 @@ defmodule GeoserverConfig.LayerGroups do
   ## Example
       GeoserverConfig.list_layer_groups()
   """
-  @spec list_layer_groups() :: Req.Response.t()
+  @spec list_layer_groups() :: {:ok, list()} | {:error, any()}
   def list_layer_groups do
     url = "#{@base_url}/layergroups"
 
-    Req.get!(
-      url,
-      auth: {:basic, "#{@username}:#{@password}"},
-      headers: [{"Accept", "application/json"}]
-    )
+    case Req.get(
+          url,
+          auth: {:basic, "#{@username}:#{@password}"},
+          headers: [{"Accept", "application/json"}]
+        ) do
+      {:ok, %{status: 200, body: %{"layerGroups" => %{"layerGroup" => groups}}}} when is_list(groups) ->
+        {:ok, groups}
+
+      {:ok, %{status: 200, body: %{"layerGroups" => %{}}}} ->
+        {:ok, []}
+
+      {:ok, %{status: status, body: body}} ->
+        {:error, {:http_error, status, body}}
+
+      {:error, reason} ->
+        {:error, {:request_failed, reason}}
+    end
   end
 
   @doc """

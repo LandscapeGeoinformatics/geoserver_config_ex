@@ -103,7 +103,7 @@
 # IO.inspect(response)
 
 # GET Method: List of Coverages
-# response = GeoserverConfig.Coverages.list_coverages("sf", "sfdem")
+# response = GeoserverConfig.Coverages.list_coverages("nurc", "mosaic")
 # IO.inspect(response)
 
 # POST Method: Creation of Coverage Layers
@@ -143,7 +143,7 @@
 # response = GeoserverConfig.Styles.list_styles()
 # IO.inspect(response)
 
-# # GET Method: Styles (Workspace Specific)
+# GET Method: Styles (Workspace Specific)
 # response = GeoserverConfig.list_styles_workspace_specific("ne")
 # IO.inspect(response)
 
@@ -232,9 +232,8 @@
 
 
 # LayerGroups GET Method
-response = GeoserverConfig.list_layer_groups().body
+response = GeoserverConfig.list_layer_groups()
 IO.inspect(response)
-
 
 # LayerGroups POST Method
 # xml_body = """
