@@ -22,7 +22,7 @@ This Elixir application provides a convenient way to interact with GeoServer's R
    ```bash
    export GEOSERVER_USERNAME="your_username"
    export GEOSERVER_PASSWORD="your_password"
-   export GEOSERVER_BASE_URL="your_geoserver_base_url"
+   export GEOSERVER_BASE_URL="your_geoserver_base_url/rest"
    ```
 
 ## Workspace Operations
