@@ -84,6 +84,69 @@ defmodule GeoserverConfig.Styles do
   end
 
   @doc """
+  Retrieves the SLD content for a specific style.
+
+  ## Parameters
+    - `workspace` (`String.t`) — The name of the workspace (optional).
+    - `style_name` (`String.t`) — The name of the style.
+
+  ## Returns
+    - `{:ok, sld_content}` on success
+    - `{:error, {error_type, reason}}` on failure
+
+  ## Example
+      GeoserverConfig.Styles.get_style("demo", "dem_style")
+  """
+  def get_style(workspace, style_name) do
+    url = case workspace do
+      nil -> "#{@base_url}/styles/#{style_name}.sld"
+      "" ->  "#{@base_url}/styles/#{style_name}.sld"
+      workspace -> "#{@base_url}/workspaces/#{workspace}/styles/#{style_name}.sld"
+    end
+
+    case Req.get(
+        url,
+        auth: {:basic, "#{@username}:#{@password}"},
+        headers: [{"Accept", "application/vnd.ogc.sld+xml, application/xml"}]
+        ) do
+      {:ok, %{status: 200, body: sld_content}} when is_binary(sld_content) ->
+        {:ok, sld_content}
+        # write_sld_file(workspace, style_name, sld_content)
+
+      {:ok, %{status: 404}} ->
+        {:error, {:not_found, "Style '#{style_name}' not found"}}
+
+      {:ok, %{status: status, body: body}} ->
+        {:error, {:http_error, status, body}}
+
+      {:error, reason} ->
+        {:error, {:request_failed, reason}}
+    end
+
+  end
+
+  @doc """
+  Writes the SLD content to a local file.
+
+  ## Parameters
+    - `style_file_path` (`String.t`) — The file path where the SLD content will be saved.
+    - `sld_content` (`String.t`) — The raw SLD XML content.
+  ## Returns
+    - `{:ok, %{file_path: String.t(), size: integer()}}` on success
+    - `{:error, {:file_write_failed, reason, style_file_path}}` on failure
+  """
+  def write_sld_file(style_file_path, sld_content) do
+    # Write SLD file
+
+    case File.write(style_file_path, sld_content) do
+      :ok ->
+        {:ok, %{file_path: style_file_path, size: byte_size(sld_content)}}
+      {:error, reason} ->
+        {:error, {:file_write_failed, reason, style_file_path}}
+    end
+  end
+
+  @doc """
   Creates a new style in GeoServer using Geoserver REST API.
 
   ## Parameters
