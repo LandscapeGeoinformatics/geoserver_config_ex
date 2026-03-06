@@ -2,15 +2,9 @@ defmodule GeoserverConfig.StyleAssignToLayer do
   @moduledoc """
   Provides functionality to assign a style to a coverage layer in GeoServer.
 
-  Verifies that the specified style exists (either globally or in a workspace)
-  before attempting to assign it as the default style for a given layer.
-
-  All functions require a `GeoserverConfig.Connection` as their first argument.
-
-  ## Example
-
-      conn = GeoserverConfig.Connection.from_env()
-      {:ok, msg} = GeoserverConfig.StyleAssignToLayer.assign_style_to_layer(conn, "demo_ws", "dem_layer", "dem_style")
+  Verifies that the specified style exists before attempting to assign it as
+  the default style for a given layer. All functions require a
+  `GeoserverConfig.Connection` as their first argument.
   """
 
   alias GeoserverConfig.Connection
@@ -30,11 +24,6 @@ defmodule GeoserverConfig.StyleAssignToLayer do
 
     - `{:ok, message}` if the style was successfully assigned
     - `{:error, reason}` if the style does not exist or the assignment failed
-
-  ## Examples
-
-      GeoserverConfig.StyleAssignToLayer.assign_style_to_layer(conn, "demo_ws", "dem_layer", "dem_style")
-      GeoserverConfig.StyleAssignToLayer.assign_style_to_layer(conn, "demo_ws", "dem_layer", "dem_style", "style_ws")
   """
   def assign_style_to_layer(%Connection{} = conn, workspace, layer_name, style_name, style_workspace \\ nil) do
     check_result =
@@ -45,24 +34,20 @@ defmodule GeoserverConfig.StyleAssignToLayer do
       end
 
     case check_result do
-      {:ok, :exists} ->
-        assign_style(conn, workspace, layer_name, style_name, style_workspace)
-
-      {:error, reason} ->
-        {:error, reason}
+      {:ok, :exists} -> assign_style(conn, workspace, layer_name, style_name, style_workspace)
+      {:error, reason} -> {:error, reason}
     end
   end
 
   defp check_style_in_workspace(%Connection{} = conn, style_name, style_workspace) do
     url = "#{conn.base_url}/workspaces/#{style_workspace}/styles/#{style_name}.json"
 
-    case Req.get(url, auth: Connection.auth(conn), decode_body: false) do
+    case Req.get(url, Connection.req_opts(conn) ++ [decode_body: false]) do
       {:ok, %Req.Response{status: 200}} ->
         {:ok, :exists}
 
       {:ok, %Req.Response{status: 404}} ->
-        {:error,
-         "Style '#{style_name}' does not exist in workspace '#{style_workspace}'."}
+        {:error, "Style '#{style_name}' does not exist in workspace '#{style_workspace}'."}
 
       {:ok, %Req.Response{status: status}} ->
         {:error, {:http_error, status, "Unexpected error checking style in workspace"}}
@@ -75,7 +60,7 @@ defmodule GeoserverConfig.StyleAssignToLayer do
   defp check_global_style(%Connection{} = conn, style_name) do
     url = "#{conn.base_url}/styles/#{style_name}.json"
 
-    case Req.get(url, auth: Connection.auth(conn), decode_body: false) do
+    case Req.get(url, Connection.req_opts(conn) ++ [decode_body: false]) do
       {:ok, %Req.Response{status: 200}} ->
         {:ok, :exists}
 
@@ -103,9 +88,8 @@ defmodule GeoserverConfig.StyleAssignToLayer do
     body = Jason.encode!(%{"layer" => %{"defaultStyle" => style_ref}})
 
     case Req.put(url,
-           auth: Connection.auth(conn),
-           headers: [{"Content-Type", "application/json"}],
-           body: body
+           Connection.req_opts(conn) ++
+             [headers: [{"Content-Type", "application/json"}], body: body]
          ) do
       {:ok, %Req.Response{status: status}} when status in 200..299 ->
         {:ok, "Style '#{style_name}' successfully assigned to layer '#{layer_name}'."}

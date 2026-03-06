@@ -23,18 +23,11 @@ defmodule GeoserverConfig.Coveragestores do
     - `{:error, {:http_error, status, body}}` on non-200 response
     - `{:error, :unexpected_format, body}` when the response body is unrecognised
     - `{:error, {:request_failed, reason}}` on transport error
-
-  ## Example
-
-      {:ok, stores} = GeoserverConfig.Coveragestores.list_coveragestores(conn, "demo_workspace")
   """
   def list_coveragestores(%Connection{} = conn, workspace) do
     url = "#{conn.base_url}/workspaces/#{workspace}/coveragestores"
 
-    case Req.get(url,
-           auth: Connection.auth(conn),
-           headers: [{"Accept", "application/json"}]
-         ) do
+    case Req.get(url, Connection.req_opts(conn) ++ [headers: [{"Accept", "application/json"}]]) do
       {:ok, %{status: 200, body: body}} ->
         case body do
           %{"coverageStores" => %{"coverageStore" => stores}} when is_list(stores) ->
@@ -66,23 +59,12 @@ defmodule GeoserverConfig.Coveragestores do
     - `geotiff_path` — file path or URL to the GeoTIFF/COG
     - `description` — optional description (default: `""`)
     - `opts` — optional map with extra store fields:
-      - `:connectionParameters`
-      - `:metadata`
-      - `:disableOnConnFailure`
+      - `:connectionParameters`, `:metadata`, `:disableOnConnFailure`
 
   ## Returns
 
     - `{:ok, store_name}` on success
     - `{:error, reason}` on failure
-
-  ## Example
-
-      {:ok, "dem_store"} = GeoserverConfig.Coveragestores.create_coveragestore(
-        conn,
-        "demo_workspace",
-        "dem_store",
-        "file:///data/elevation.tif"
-      )
   """
   def create_coveragestore(%Connection{} = conn, workspace, store_name, geotiff_path, description \\ "", opts \\ %{}) do
     url = "#{conn.base_url}/workspaces/#{workspace}/coveragestores"
@@ -104,10 +86,12 @@ defmodule GeoserverConfig.Coveragestores do
       end)
 
     case Req.post(url,
-           auth: Connection.auth(conn),
-           json: store_body,
-           headers: [{"Content-Type", "application/json"}],
-           decode_body: false
+           Connection.req_opts(conn) ++
+             [
+               json: store_body,
+               headers: [{"Content-Type", "application/json"}],
+               decode_body: false
+             ]
          ) do
       {:ok, %Req.Response{status: status}} when status in [200, 201] ->
         {:ok, store_name}
@@ -128,23 +112,13 @@ defmodule GeoserverConfig.Coveragestores do
     - `conn` — a `GeoserverConfig.Connection`
     - `workspace` — workspace containing the store
     - `store_name` — name of the coverage store to update
-    - `updated_params` — map of fields to update:
-      - `:type`, `:enabled`, `:url`, `:description`
+    - `updated_params` — map of fields to update: `:type`, `:enabled`, `:url`, `:description`
 
   ## Returns
 
     - `{:ok, store_name}` on success
     - `{:error, {:http_error, status, body}}` on failure
     - `{:error, {:request_failed, reason}}` on transport error
-
-  ## Example
-
-      {:ok, "dem_store"} = GeoserverConfig.Coveragestores.update_coveragestore(
-        conn,
-        "demo_workspace",
-        "dem_store",
-        %{type: "GeoTIFF", enabled: true, url: "file:///new/path/elevation.tif"}
-      )
   """
   def update_coveragestore(%Connection{} = conn, workspace, store_name, updated_params) do
     url = "#{conn.base_url}/workspaces/#{workspace}/coveragestores/#{store_name}"
@@ -161,9 +135,8 @@ defmodule GeoserverConfig.Coveragestores do
     }
 
     case Req.put(url,
-           auth: Connection.auth(conn),
-           json: body,
-           headers: [{"Content-Type", "application/json"}]
+           Connection.req_opts(conn) ++
+             [json: body, headers: [{"Content-Type", "application/json"}]]
          ) do
       {:ok, %Req.Response{status: status}} when status in [200, 201] ->
         {:ok, store_name}
@@ -181,29 +154,16 @@ defmodule GeoserverConfig.Coveragestores do
 
   Uses `purge=true` to also remove related resources.
 
-  ## Parameters
-
-    - `conn` — a `GeoserverConfig.Connection`
-    - `workspace` — name of the workspace
-    - `name` — name of the coverage store to delete
-
   ## Returns
 
     - `{:ok, name}` on success
     - `{:error, {:http_error, status, body}}` on failure
     - `{:error, {:request_failed, reason}}` on transport error
-
-  ## Example
-
-      {:ok, "dem_store"} = GeoserverConfig.Coveragestores.delete_coveragestore(conn, "demo_workspace", "dem_store")
   """
   def delete_coveragestore(%Connection{} = conn, workspace, name) do
     url = "#{conn.base_url}/workspaces/#{workspace}/coveragestores/#{name}?purge=true"
 
-    case Req.delete(url,
-           auth: Connection.auth(conn),
-           headers: [{"Accept", "application/json"}]
-         ) do
+    case Req.delete(url, Connection.req_opts(conn) ++ [headers: [{"Accept", "application/json"}]]) do
       {:ok, %Req.Response{status: 200}} ->
         {:ok, name}
 

@@ -2,38 +2,19 @@ defmodule GeoserverConfig.Styles do
   @moduledoc """
   Provides functions to manage styles in GeoServer via the REST API.
 
-  Supports listing global and workspace-specific styles, creating, updating, and
-  deleting styles. All functions require a `GeoserverConfig.Connection` as their
-  first argument. File I/O (`write_sld_file/2`) does not need a connection.
-
-  ## Example
-
-      conn = GeoserverConfig.Connection.from_env()
-      {:ok, styles} = GeoserverConfig.Styles.list_styles(conn)
+  All functions require a `GeoserverConfig.Connection` as their first argument,
+  except `write_sld_file/2` which is a local file operation.
   """
 
   alias GeoserverConfig.Connection
 
   @doc """
   Lists all global styles available in GeoServer.
-
-  ## Returns
-
-    - `{:ok, [style]}` on success
-    - `{:error, {:http_error, status, body}}` on non-200 response
-    - `{:error, {:request_failed, reason}}` on transport error
-
-  ## Example
-
-      {:ok, styles} = GeoserverConfig.Styles.list_styles(conn)
   """
   def list_styles(%Connection{} = conn) do
     url = "#{conn.base_url}/styles"
 
-    case Req.get(url,
-           auth: Connection.auth(conn),
-           headers: [{"Accept", "application/json"}]
-         ) do
+    case Req.get(url, Connection.req_opts(conn) ++ [headers: [{"Accept", "application/json"}]]) do
       {:ok, %{status: 200, body: %{"styles" => %{"style" => styles}}}} when is_list(styles) ->
         {:ok, styles}
 
@@ -50,24 +31,11 @@ defmodule GeoserverConfig.Styles do
 
   @doc """
   Lists all styles scoped to a specific workspace.
-
-  ## Returns
-
-    - `{:ok, [style]}` on success
-    - `{:error, {:http_error, status, body}}` on non-200 response
-    - `{:error, {:request_failed, reason}}` on transport error
-
-  ## Example
-
-      {:ok, styles} = GeoserverConfig.Styles.list_styles_workspace_specific(conn, "demo")
   """
   def list_styles_workspace_specific(%Connection{} = conn, workspace) do
     url = "#{conn.base_url}/workspaces/#{workspace}/styles"
 
-    case Req.get(url,
-           auth: Connection.auth(conn),
-           headers: [{"Accept", "application/json"}]
-         ) do
+    case Req.get(url, Connection.req_opts(conn) ++ [headers: [{"Accept", "application/json"}]]) do
       {:ok, %{status: 200, body: %{"styles" => %{"style" => styles}}}} when is_list(styles) ->
         {:ok, styles}
 
@@ -93,11 +61,6 @@ defmodule GeoserverConfig.Styles do
     - `{:error, {:not_found, style_name}}` when the style does not exist
     - `{:error, {:http_error, status, body}}` on other HTTP failure
     - `{:error, {:request_failed, reason}}` on transport error
-
-  ## Example
-
-      {:ok, sld} = GeoserverConfig.Styles.get_style(conn, "demo", "dem_style")
-      {:ok, sld} = GeoserverConfig.Styles.get_style(conn, nil, "dem_style")
   """
   def get_style(%Connection{} = conn, workspace, style_name) do
     url =
@@ -108,8 +71,8 @@ defmodule GeoserverConfig.Styles do
       end
 
     case Req.get(url,
-           auth: Connection.auth(conn),
-           headers: [{"Accept", "application/vnd.ogc.sld+xml, application/xml"}]
+           Connection.req_opts(conn) ++
+             [headers: [{"Accept", "application/vnd.ogc.sld+xml, application/xml"}]]
          ) do
       {:ok, %{status: 200, body: sld_content}} when is_binary(sld_content) ->
         {:ok, sld_content}
@@ -146,26 +109,13 @@ defmodule GeoserverConfig.Styles do
   ## Parameters
 
     - `conn` — a `GeoserverConfig.Connection`
-    - `opts` — map with:
-      - `:name` (required) — name of the style
-      - `:sld_content` (required) — raw SLD XML content
-      - `:workspace` (optional) — target workspace for a workspace-scoped style
-      - `:filename` (optional) — filename to associate with the style
+    - `opts` — map with `:name`, `:sld_content` (required); `:workspace`, `:filename` (optional)
 
   ## Returns
 
     - `{:ok, style_name}` on success
     - `{:error, %{status: status, body: body}}` on HTTP failure
     - `{:error, reason}` on transport error
-
-  ## Example
-
-      {:ok, "dem_style"} = GeoserverConfig.Styles.create_style(conn, %{
-        name: "dem_style",
-        filename: "dem_style.sld",
-        sld_content: "<StyledLayerDescriptor>...</StyledLayerDescriptor>",
-        workspace: "demo"
-      })
   """
   def create_style(%Connection{} = conn, opts) do
     url =
@@ -175,20 +125,17 @@ defmodule GeoserverConfig.Styles do
         "#{conn.base_url}/styles"
       end
 
-    headers = [
-      {"Content-Type", "application/vnd.ogc.sld+xml"},
-      {"Accept", "application/json"}
-    ]
-
     query = [name: opts[:name]]
     query = if opts[:filename], do: Keyword.put(query, :filename, opts[:filename]), else: query
 
     case Req.post(url,
-           auth: Connection.auth(conn),
-           headers: headers,
-           body: opts[:sld_content],
-           params: query,
-           decode_body: false
+           Connection.req_opts(conn) ++
+             [
+               headers: [{"Content-Type", "application/vnd.ogc.sld+xml"}, {"Accept", "application/json"}],
+               body: opts[:sld_content],
+               params: query,
+               decode_body: false
+             ]
          ) do
       {:ok, response} when response.status in 200..299 ->
         {:ok, opts[:name]}
@@ -207,24 +154,13 @@ defmodule GeoserverConfig.Styles do
   ## Parameters
 
     - `conn` — a `GeoserverConfig.Connection`
-    - `opts` — map with:
-      - `:name` (required) — style name to update
-      - `:sld_content` (required) — updated SLD XML content
-      - `:workspace` (optional) — workspace for workspace-scoped styles
-      - `:filename` (optional) — optional filename parameter
+    - `opts` — map with `:name`, `:sld_content` (required); `:workspace`, `:filename` (optional)
 
   ## Returns
 
     - `{:ok, style_name}` on success
-    - `{:error, reason}` on failure
-
-  ## Example
-
-      {:ok, "dem_style"} = GeoserverConfig.Styles.update_style(conn, %{
-        name: "dem_style",
-        sld_content: "<StyledLayerDescriptor>...</StyledLayerDescriptor>",
-        workspace: "demo"
-      })
+    - `{:error, {:http_error, status, body}}` on failure
+    - `{:error, {:request_failed, reason}}` on transport error
   """
   def update_style(%Connection{} = conn, opts) do
     url =
@@ -234,19 +170,16 @@ defmodule GeoserverConfig.Styles do
         "#{conn.base_url}/styles/#{opts[:name]}"
       end
 
-    headers = [
-      {"Content-Type", "application/vnd.ogc.sld+xml"},
-      {"Accept", "application/json"}
-    ]
-
     query = if opts[:filename], do: [filename: opts[:filename]], else: []
 
     case Req.put(url,
-           auth: Connection.auth(conn),
-           headers: headers,
-           body: opts[:sld_content],
-           params: query,
-           decode_body: false
+           Connection.req_opts(conn) ++
+             [
+               headers: [{"Content-Type", "application/vnd.ogc.sld+xml"}, {"Accept", "application/json"}],
+               body: opts[:sld_content],
+               params: query,
+               decode_body: false
+             ]
          ) do
       {:ok, response} when response.status in 200..299 ->
         {:ok, opts[:name]}
@@ -267,9 +200,7 @@ defmodule GeoserverConfig.Styles do
     - `conn` — a `GeoserverConfig.Connection`
     - `style_name` — name of the style to delete
     - `workspace` — workspace of the style, or `nil` for global styles (default: `nil`)
-    - `opts` — keyword list:
-      - `:purge` (`boolean`) — if `true`, removes all style resources
-      - `:recurse` (`boolean`) — if `true`, also unassigns the style from layers
+    - `opts` — `:purge` and/or `:recurse` (both boolean, default false)
 
   ## Returns
 
@@ -277,10 +208,6 @@ defmodule GeoserverConfig.Styles do
     - `{:error, {:not_found, style_name}}` if the style does not exist
     - `{:error, {:http_error, status, body}}` on other HTTP failure
     - `{:error, {:request_failed, reason}}` on transport error
-
-  ## Example
-
-      {:ok, "dem_style"} = GeoserverConfig.Styles.delete_style(conn, "dem_style", "demo_workspace", purge: true, recurse: true)
   """
   def delete_style(%Connection{} = conn, style_name, workspace \\ nil, opts \\ []) do
     url =
@@ -296,9 +223,8 @@ defmodule GeoserverConfig.Styles do
       |> then(fn q -> if Keyword.get(opts, :recurse), do: Keyword.put(q, :recurse, "true"), else: q end)
 
     case Req.delete(url,
-           auth: Connection.auth(conn),
-           headers: [{"Accept", "application/json"}],
-           params: query
+           Connection.req_opts(conn) ++
+             [headers: [{"Accept", "application/json"}], params: query]
          ) do
       {:ok, %Req.Response{status: 200}} ->
         {:ok, style_name}

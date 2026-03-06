@@ -45,7 +45,7 @@ defmodule GeoserverConfig.Connection do
   """
 
   @enforce_keys [:base_url, :username, :password]
-  defstruct [:base_url, :username, :password]
+  defstruct [:base_url, :username, :password, plug: nil]
 
   @doc """
   Creates a `Connection` from explicit values.
@@ -127,6 +127,28 @@ defmodule GeoserverConfig.Connection do
   def auth(%__MODULE__{username: username, password: password}) do
     {:basic, "#{username}:#{password}"}
   end
+
+  @doc """
+  Returns Req options for this connection: always includes `auth`, and includes
+  `plug` when set (used by tests via `Req.Test`).
+
+  Modules in this library call `Connection.req_opts(conn)` and merge their own
+  per-request options on top, so every HTTP call automatically picks up any
+  test adapter set on the connection.
+
+  ## Example (in tests)
+
+      conn = %GeoserverConfig.Connection{
+        base_url: "http://test",
+        username: "admin",
+        password: "geoserver",
+        plug: {Req.Test, MyStub}
+      }
+  """
+  def req_opts(%__MODULE__{plug: nil} = conn), do: [auth: auth(conn)]
+  # When a test plug is set, also disable Req's built-in retry so test stubs are
+  # not called multiple times on simulated transport errors.
+  def req_opts(%__MODULE__{plug: plug} = conn), do: [auth: auth(conn), plug: plug, retry: false]
 
   defp fetch_required!(config, field, app, key) do
     case config[field] do
