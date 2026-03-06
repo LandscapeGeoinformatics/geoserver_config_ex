@@ -5,7 +5,7 @@ This Elixir application provides a convenient way to interact with GeoServer's R
 
 ## Prerequisites
 
-- Elixir 1.12+ installed
+- Elixir 1.17+ installed
 - Req HTTP client (included in mix.exs dependencies)
 - GeoServer instance with REST API enabled
 - Valid GeoServer credentials

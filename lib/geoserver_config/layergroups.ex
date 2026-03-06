@@ -1,41 +1,40 @@
 defmodule GeoserverConfig.LayerGroups do
   @moduledoc """
-  Provides functionality to manage Layer Groups in GeoServer.
+  Provides functionality to manage Layer Groups in GeoServer via the REST API.
 
-  Layer groups allow you to group multiple layers together for visualization or management
-  purposes. This module supports listing, creating, updating, and deleting layer groups via
-  GeoServer's REST API.
-
-  ## Environment Variables
-
-    - `GEOSERVER_BASE_URL` — The base URL of the GeoServer instance.
-    - `GEOSERVER_USERNAME` — Username used for authentication.
-    - `GEOSERVER_PASSWORD` — Password used for authentication.
-  """
-
-  @base_url System.get_env("GEOSERVER_BASE_URL")
-  @username System.get_env("GEOSERVER_USERNAME")
-  @password System.get_env("GEOSERVER_PASSWORD")
-
-  @doc """
-  Fetches a list of all layer groups available in the GeoServer.
-
-  ## Returns
-    - `Req.Response.t()` — The raw response containing the list of layer groups in JSON format.
+  Layer groups combine multiple layers for visualization or management purposes.
+  All functions require a `GeoserverConfig.Connection` as their first argument.
 
   ## Example
-      GeoserverConfig.list_layer_groups()
-  """
-  @spec list_layer_groups() :: {:ok, list()} | {:error, any()}
-  def list_layer_groups do
-    url = "#{@base_url}/layergroups"
 
-    case Req.get(
-          url,
-          auth: {:basic, "#{@username}:#{@password}"},
-          headers: [{"Accept", "application/json"}]
-        ) do
-      {:ok, %{status: 200, body: %{"layerGroups" => %{"layerGroup" => groups}}}} when is_list(groups) ->
+      conn = GeoserverConfig.Connection.from_env()
+      {:ok, groups} = GeoserverConfig.LayerGroups.list_layer_groups(conn)
+  """
+
+  alias GeoserverConfig.Connection
+
+  @doc """
+  Lists all layer groups available in GeoServer.
+
+  ## Returns
+
+    - `{:ok, [group]}` on success
+    - `{:error, {:http_error, status, body}}` on non-200 response
+    - `{:error, {:request_failed, reason}}` on transport error
+
+  ## Example
+
+      {:ok, groups} = GeoserverConfig.LayerGroups.list_layer_groups(conn)
+  """
+  def list_layer_groups(%Connection{} = conn) do
+    url = "#{conn.base_url}/layergroups"
+
+    case Req.get(url,
+           auth: Connection.auth(conn),
+           headers: [{"Accept", "application/json"}]
+         ) do
+      {:ok, %{status: 200, body: %{"layerGroups" => %{"layerGroup" => groups}}}}
+      when is_list(groups) ->
         {:ok, groups}
 
       {:ok, %{status: 200, body: %{"layerGroups" => %{}}}} ->
@@ -50,217 +49,257 @@ defmodule GeoserverConfig.LayerGroups do
   end
 
   @doc """
-  Creates a new layer group in GeoServer using either XML (string) or JSON (map).
+  Creates a new layer group in GeoServer.
 
-  ## Parameters
-    - `body` — Either a JSON map or XML string.
+  Accepts either an XML string or a JSON map as the body.
 
   ## Returns
-    - `Req.Response.t()` — Success or Error response from GeoServer.
+
+    - `{:ok, body}` on success (status 200/201)
+    - `{:error, {:http_error, status, body}}` on failure
+    - `{:error, {:request_failed, reason}}` on transport error
 
   ## Example
-      GeoserverConfig.create_layer_group(xml_body)   # XML
-      GeoserverConfig.create_layer_group(%{layerGroup: %{name: "my-group", layers: [...], styles: [...]}})  # JSON
+
+      {:ok, _} = GeoserverConfig.LayerGroups.create_layer_group(conn, xml_string)
+      {:ok, _} = GeoserverConfig.LayerGroups.create_layer_group(conn, %{layerGroup: %{name: "my-group"}})
   """
-  @spec create_layer_group(String.t() | map()) :: Req.Response.t()
-  def create_layer_group(body) do
-    url = "#{@base_url}/layergroups"
-
-    cond do
-      is_binary(body) ->
-        Req.post!(
-          url,
-          auth: {:basic, "#{@username}:#{@password}"},
-          headers: [
-            {"Content-Type", "application/xml"},
-            {"Accept", "application/json"}
-          ],
-          body: body
-        )
-
-      is_map(body) ->
-        Req.post!(
-          url,
-          auth: {:basic, "#{@username}:#{@password}"},
-          headers: [
-            {"Content-Type", "application/json"},
-            {"Accept", "application/json"}
-          ],
-          json: body
-        )
-    end
+  def create_layer_group(%Connection{} = conn, body) do
+    url = "#{conn.base_url}/layergroups"
+    do_post(conn, url, body)
   end
 
   @doc """
-  Updates an existing layer group in GeoServer using either XML (string) or JSON (map).
+  Updates an existing layer group.
+
+  Accepts either an XML string or a JSON map as the body.
 
   ## Parameters
-    - `name` (`String.t`) — The name of the layer group to update.
-    - `body` — Either a JSON map or XML string representing the updated layer group.
+
+    - `conn` — a `GeoserverConfig.Connection`
+    - `name` — name of the layer group to update
+    - `body` — XML string or JSON map with updated data
 
   ## Returns
-    - `Req.Response.t()` — Success or Error response from GeoServer.
+
+    - `{:ok, body}` on success
+    - `{:error, {:http_error, status, body}}` on failure
+    - `{:error, {:request_failed, reason}}` on transport error
 
   ## Example
-      GeoserverConfig.update_layer_group("layer-group", updated_xml)   # XML
-      GeoserverConfig.update_layer_group("layer-group", %{layerGroup: %{layers: [...], styles: [...]}})  # JSON
+
+      {:ok, _} = GeoserverConfig.LayerGroups.update_layer_group(conn, "my-group", updated_xml)
   """
-  @spec update_layer_group(String.t(), String.t() | map()) :: Req.Response.t()
-  def update_layer_group(name, body)
-
-  def update_layer_group(name, body) when is_binary(body) do
-    url = "#{@base_url}/layergroups/#{name}"
-
-    Req.put!(
-      url,
-      auth: {:basic, "#{@username}:#{@password}"},
-      headers: [
-        {"Content-Type", "application/xml"},
-        {"Accept", "application/json"}
-      ],
-      body: body
-    )
+  def update_layer_group(%Connection{} = conn, name, body) do
+    url = "#{conn.base_url}/layergroups/#{name}"
+    do_put(conn, url, body)
   end
-
-  def update_layer_group(name, body) when is_map(body) do
-    url = "#{@base_url}/layergroups/#{name}"
-
-    Req.put!(
-      url,
-      auth: {:basic, "#{@username}:#{@password}"},
-      headers: [
-        {"Content-Type", "application/json"},
-        {"Accept", "application/json"}
-      ],
-      json: body
-    )
-  end
-
 
   @doc """
   Deletes a layer group from GeoServer by name.
 
-  ## Parameters
-    - `name` (`String.t`) — The name of the layer group to delete.
-
   ## Returns
-    - `Req.Response.t()` — Success or Error response from GeoServer.
+
+    - `{:ok, name}` on success
+    - `{:error, {:http_error, status, body}}` on failure
+    - `{:error, {:request_failed, reason}}` on transport error
 
   ## Example
-      GeoserverConfig.delete_layer_group("group1")
-  """
-  @spec delete_layer_group(String.t()) :: Req.Response.t()
-  def delete_layer_group(name) when is_binary(name) do
-    url = "#{@base_url}/layergroups/#{name}"
 
-    Req.delete!(
-      url,
-      auth: {:basic, "#{@username}:#{@password}"},
-      headers: [{"Accept", "application/json"}]
-    )
+      {:ok, "group1"} = GeoserverConfig.LayerGroups.delete_layer_group(conn, "group1")
+  """
+  def delete_layer_group(%Connection{} = conn, name) when is_binary(name) do
+    url = "#{conn.base_url}/layergroups/#{name}"
+
+    case Req.delete(url,
+           auth: Connection.auth(conn),
+           headers: [{"Accept", "application/json"}]
+         ) do
+      {:ok, %Req.Response{status: 200}} ->
+        {:ok, name}
+
+      {:ok, %Req.Response{status: status, body: body}} ->
+        {:error, {:http_error, status, body}}
+
+      {:error, reason} ->
+        {:error, {:request_failed, reason}}
+    end
   end
 
   @doc """
-  Adds a new layer with an optional style to a GeoServer layer group.
+  Adds a layer with an optional style to a GeoServer layer group.
+
+  Fetches the current group state and appends the new layer before updating.
 
   ## Parameters
-    - `group_name`: Name of the layer group
-    - `layer_name`: Name of the layer to add
-    - `style_name`: Optional style to associate with the layer
+
+    - `conn` — a `GeoserverConfig.Connection`
+    - `group_name` — name of the layer group
+    - `layer_name` — name of the layer to add
+    - `style_name` — style to associate with the layer (optional)
+
+  ## Returns
+
+    - `{:ok, body}` on success
+    - `{:error, reason}` on failure
 
   ## Example
-      GeoserverConfig.add_layer_to_group("my_group", "sf:layer1", "sf:style1")
+
+      {:ok, _} = GeoserverConfig.LayerGroups.add_layer_to_group(conn, "my_group", "sf:layer1", "sf:style1")
   """
-  @spec add_layer_to_group(String.t(), String.t(), String.t() | nil) :: Req.Response.t()
-  def add_layer_to_group(group_name, layer_name, style_name \\ nil) do
-    url = "#{@base_url}/layergroups/#{group_name}.json"
+  def add_layer_to_group(%Connection{} = conn, group_name, layer_name, style_name \\ nil) do
+    with {:ok, group} <- fetch_group(conn, group_name) do
+      existing_layers = normalize_list(get_in(group, ["publishables", "published"]))
 
-    response = Req.get!(
-      url,
-      auth: {:basic, "#{@username}:#{@password}"},
-      headers: [{"Accept", "application/json"}]
-    )
+      new_layer = %{"@type" => "layer", "name" => layer_name}
 
-    group = response.body["layerGroup"]
+      new_layer =
+        if style_name do
+          Map.put(new_layer, "styles", %{"style" => %{"name" => style_name}})
+        else
+          new_layer
+        end
 
-    existing_layers =
-      group
-      |> Map.get("publishables", %{})
-      |> Map.get("published", [])
-      |> case do
-        nil -> []
-        list when is_list(list) -> list
-        item -> [item]
-      end
-
-    new_layer = %{"@type" => "layer", "name" => layer_name}
-
-    new_layer_with_style =
-      if style_name do
-        Map.put(new_layer, "styles", %{"style" => %{"name" => style_name}})
-      else
-        new_layer
-      end
-
-    updated_layers = existing_layers ++ [new_layer_with_style]
-
-    updated_group_payload = %{
-      "layerGroup" => %{
-        "publishables" => %{
-          "published" => updated_layers
+      updated_payload = %{
+        "layerGroup" => %{
+          "publishables" => %{"published" => existing_layers ++ [new_layer]}
         }
       }
-    }
 
-    update_layer_group(group_name, updated_group_payload)
+      update_layer_group(conn, group_name, updated_payload)
+    end
   end
 
   @doc """
   Removes a layer from a GeoServer layer group.
 
+  Fetches the current group state and filters out the named layer before updating.
+
   ## Parameters
-    - `group_name`: Name of the layer group
-    - `layer_name`: Name of the layer to remove
+
+    - `conn` — a `GeoserverConfig.Connection`
+    - `group_name` — name of the layer group
+    - `layer_name` — name of the layer to remove
+
+  ## Returns
+
+    - `{:ok, body}` on success
+    - `{:error, :layer_not_found}` if the layer is not in the group
+    - `{:error, reason}` on other failure
 
   ## Example
-      GeoserverConfig.remove_layer_from_group("my_group", "sf:layer1")
+
+      {:ok, _} = GeoserverConfig.LayerGroups.remove_layer_from_group(conn, "my_group", "sf:layer1")
   """
-  @spec remove_layer_from_group(String.t(), String.t()) :: Req.Response.t()
-  def remove_layer_from_group(group_name, layer_name) do
-    url = "#{@base_url}/layergroups/#{group_name}.json"
+  def remove_layer_from_group(%Connection{} = conn, group_name, layer_name) do
+    with {:ok, group} <- fetch_group(conn, group_name) do
+      existing_layers = normalize_list(get_in(group, ["publishables", "published"]))
 
-    response = Req.get!(
-      url,
-      auth: {:basic, "#{@username}:#{@password}"},
-      headers: [{"Accept", "application/json"}]
-    )
+      case Enum.find_index(existing_layers, fn l -> l["name"] == layer_name end) do
+        nil ->
+          {:error, :layer_not_found}
 
-    group = response.body["layerGroup"]
+        index ->
+          updated_payload = %{
+            "layerGroup" => %{
+              "publishables" => %{"published" => List.delete_at(existing_layers, index)}
+            }
+          }
 
-    existing_layers =
-      group
-      |> Map.get("publishables", %{})
-      |> Map.get("published", [])
-      |> case do
-        nil -> []
-        list when is_list(list) -> list
-        item -> [item]
+          update_layer_group(conn, group_name, updated_payload)
       end
-
-    updated_layers =
-      Enum.reject(existing_layers, fn layer ->
-        layer["name"] == layer_name
-      end)
-
-    updated_group_payload = %{
-      "layerGroup" => %{
-        "publishables" => %{
-          "published" => updated_layers
-        }
-      }
-    }
-
-    update_layer_group(group_name, updated_group_payload)
+    end
   end
 
+  # Fetches the current group map from GeoServer.
+  defp fetch_group(%Connection{} = conn, group_name) do
+    url = "#{conn.base_url}/layergroups/#{group_name}.json"
+
+    case Req.get(url,
+           auth: Connection.auth(conn),
+           headers: [{"Accept", "application/json"}]
+         ) do
+      {:ok, %{status: 200, body: %{"layerGroup" => group}}} ->
+        {:ok, group}
+
+      {:ok, %{status: status, body: body}} ->
+        {:error, {:http_error, status, body}}
+
+      {:error, reason} ->
+        {:error, {:request_failed, reason}}
+    end
+  end
+
+  # GeoServer returns a single map when there is only one item; normalise to always be a list.
+  defp normalize_list(nil), do: []
+  defp normalize_list(list) when is_list(list), do: list
+  defp normalize_list(item), do: [item]
+
+  defp do_post(%Connection{} = conn, url, body) when is_binary(body) do
+    case Req.post(url,
+           auth: Connection.auth(conn),
+           headers: [{"Content-Type", "application/xml"}, {"Accept", "application/json"}],
+           body: body
+         ) do
+      {:ok, %Req.Response{status: status, body: resp_body}} when status in 200..299 ->
+        {:ok, resp_body}
+
+      {:ok, %Req.Response{status: status, body: resp_body}} ->
+        {:error, {:http_error, status, resp_body}}
+
+      {:error, reason} ->
+        {:error, {:request_failed, reason}}
+    end
+  end
+
+  defp do_post(%Connection{} = conn, url, body) when is_map(body) do
+    case Req.post(url,
+           auth: Connection.auth(conn),
+           headers: [{"Content-Type", "application/json"}, {"Accept", "application/json"}],
+           json: body
+         ) do
+      {:ok, %Req.Response{status: status, body: resp_body}} when status in 200..299 ->
+        {:ok, resp_body}
+
+      {:ok, %Req.Response{status: status, body: resp_body}} ->
+        {:error, {:http_error, status, resp_body}}
+
+      {:error, reason} ->
+        {:error, {:request_failed, reason}}
+    end
+  end
+
+  defp do_put(%Connection{} = conn, url, body) when is_binary(body) do
+    case Req.put(url,
+           auth: Connection.auth(conn),
+           headers: [{"Content-Type", "application/xml"}, {"Accept", "application/json"}],
+           body: body
+         ) do
+      {:ok, %Req.Response{status: status, body: resp_body}} when status in 200..299 ->
+        {:ok, resp_body}
+
+      {:ok, %Req.Response{status: status, body: resp_body}} ->
+        {:error, {:http_error, status, resp_body}}
+
+      {:error, reason} ->
+        {:error, {:request_failed, reason}}
+    end
+  end
+
+  defp do_put(%Connection{} = conn, url, body) when is_map(body) do
+    case Req.put(url,
+           auth: Connection.auth(conn),
+           headers: [{"Content-Type", "application/json"}, {"Accept", "application/json"}],
+           json: body
+         ) do
+      {:ok, %Req.Response{status: status, body: resp_body}} when status in 200..299 ->
+        {:ok, resp_body}
+
+      {:ok, %Req.Response{status: status, body: resp_body}} ->
+        {:error, {:http_error, status, resp_body}}
+
+      {:error, reason} ->
+        {:error, {:request_failed, reason}}
+    end
+  end
 end

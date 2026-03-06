@@ -2,44 +2,39 @@ defmodule GeoserverConfig.Coverages do
   @moduledoc """
   Provides functionality for managing GeoServer coverages via the REST API.
 
-  This module supports creating, listing, and deleting coverages (raster data layers) in a GeoServer workspace and coverage store.
+  Supports creating, listing, and deleting coverages (raster data layers) in a
+  GeoServer workspace and coverage store. All functions require a
+  `GeoserverConfig.Connection` as their first argument.
 
-  It uses exact API structure matching to configure metadata, spatial reference systems, bounding boxes, and grid settings for each coverage layer.
+  ## Example
 
-  ## Environment Variables
-
-    - `GEOSERVER_BASE_URL` — GeoServer base URL
-    - `GEOSERVER_USERNAME` — GeoServer username
-    - `GEOSERVER_PASSWORD` — GeoServer password
+      conn = GeoserverConfig.Connection.from_env()
+      {:ok, coverages} = GeoserverConfig.Coverages.list_coverages(conn, "demo_workspace", "dem_store")
   """
 
-  @base_url System.get_env("GEOSERVER_BASE_URL")
-  @username System.get_env("GEOSERVER_USERNAME")
-  @password System.get_env("GEOSERVER_PASSWORD")
-
+  alias GeoserverConfig.Connection
 
   @doc """
   Lists all coverages for a given workspace and coverage store.
 
-  ## Parameters
-    - `workspace` (`String.t`) — Name of the workspace.
-    - `coverage_store` (`String.t`) — Name of the coverage store.
-
   ## Returns
-    - `%Req.Response{}` containing the list of coverages.
+
+    - `{:ok, [coverage]}` on success
+    - `{:error, :unexpected_format, body}` when the response body is unrecognised
+    - `{:error, {:http_error, status, body}}` on non-200 response
+    - `{:error, {:request_failed, reason}}` on transport error
 
   ## Example
-      GeoserverConfig.Coverages.list_coverages("demo_workspace", "dem_store")
-  """
-  @spec list_coverages(String.t(), String.t()) :: {:ok, list()} | {:error, term()}
-  def list_coverages(workspace, coverage_store) do
-    url = "#{@base_url}/workspaces/#{workspace}/coveragestores/#{coverage_store}/coverages"
 
-    case Req.get(
-          url,
-          auth: {:basic, "#{@username}:#{@password}"},
-          headers: [{"Accept", "application/json"}]
-        ) do
+      {:ok, coverages} = GeoserverConfig.Coverages.list_coverages(conn, "demo_workspace", "dem_store")
+  """
+  def list_coverages(%Connection{} = conn, workspace, coverage_store) do
+    url = "#{conn.base_url}/workspaces/#{workspace}/coveragestores/#{coverage_store}/coverages"
+
+    case Req.get(url,
+           auth: Connection.auth(conn),
+           headers: [{"Accept", "application/json"}]
+         ) do
       {:ok, %{status: 200, body: body}} ->
         case body do
           %{"coverages" => %{"coverage" => coverages}} when is_list(coverages) ->
@@ -64,63 +59,56 @@ defmodule GeoserverConfig.Coverages do
   Creates a new coverage (raster layer) in the specified coverage store.
 
   ## Parameters
-    - `workspace` (`String.t`) — The workspace name.
-    - `coverage_store` (`String.t`) — The coverage store name.
-    - `coverage_name` (`String.t`) — Desired name of the coverage.
-    - `params` (`map`) — Metadata and configuration for the coverage. Should include:
-      - `:title`, `:srs`, `:native_bbox`, `:latlon_bbox`, `:grid`
-      - Optional: `:description`, `:abstract`, `:native_crs`, `:metadata`, `:enabled`
-    - `file_path` (`String.t`) — URL or file path of the GeoTIFF/COG.
+
+    - `conn` — a `GeoserverConfig.Connection`
+    - `workspace` — the workspace name
+    - `coverage_store` — the coverage store name
+    - `coverage_name` — desired name of the coverage
+    - `params` — metadata and configuration map:
+      - `:title` (required), `:srs` (required), `:native_bbox` (required), `:latlon_bbox` (required), `:grid` (required)
+      - `:description`, `:abstract`, `:native_crs`, `:metadata`, `:enabled` (optional)
+    - `file_path` — URL or file path of the GeoTIFF/COG
 
   ## Returns
-    - `{:ok, message}` on success
+
+    - `{:ok, coverage_name}` on success
     - `{:error, reason}` on failure
 
   ## Example
-      GeoserverConfig.Coverages.create_coverage(
+
+      {:ok, "dem_coverage"} = GeoserverConfig.Coverages.create_coverage(
+        conn,
         "demo_workspace",
         "dem_store",
-        "dem_coverage_layer",
+        "dem_coverage",
         %{
-          title: "dem_coverage_layer",
-          description: "Testing Layers for Geotiff",
-          abstract: "Testing the Coverage Layer POST Method",
+          title: "DEM Coverage",
           srs: "EPSG:3301",
-          native_crs: "EPSG:3301",
           native_bbox: %{minx: 369000.0, maxx: 740000.0, miny: 6377000.0, maxy: 6635000.0},
-          latlon_bbox: %{minx: 21.664072036889028, maxx: 28.275493984062805, miny: 57.47121886444548, maxy: 59.83122737438482},
-          grid: %{
-            dimension: [634, 477],
-            transform: [10.0, 0.0, 369000.0, 0.0, -10.0, 6635000.0]
-          },
-          metadata: %{
-            "cacheAgeMax" => 3600,
-            "cachingEnabled" => true
-          }
+          latlon_bbox: %{minx: 21.664, maxx: 28.275, miny: 57.471, maxy: 59.831},
+          grid: %{dimension: [634, 477], transform: [10.0, 0.0, 369000.0, 0.0, -10.0, 6635000.0]}
         },
         "file:///data/dem.tif"
       )
   """
-  @spec create_coverage(String.t(), String.t(), String.t(), map(), String.t()) :: {:ok, map()} | {:error, String.t()}
-  def create_coverage(workspace, coverage_store, coverage_name, params, file_path) do
+  def create_coverage(%Connection{} = conn, workspace, coverage_store, coverage_name, params, file_path) do
     payload = build_payload(workspace, coverage_store, coverage_name, params, file_path)
-    url = "#{@base_url}/workspaces/#{workspace}/coveragestores/#{coverage_store}/coverages"
+    url = "#{conn.base_url}/workspaces/#{workspace}/coveragestores/#{coverage_store}/coverages"
 
-    case Req.post(
-      url,
-      auth: {:basic, "#{@username}:#{@password}"},
-      json: payload,
-      headers: [{"Content-Type", "application/json"}],
-      decode_body: false
-    ) do
+    case Req.post(url,
+           auth: Connection.auth(conn),
+           json: payload,
+           headers: [{"Content-Type", "application/json"}],
+           decode_body: false
+         ) do
       {:ok, response} when response.status in 200..299 ->
-        {:ok, "Coverage '#{coverage_name}' created successfully"}
-      {:ok, %{status: status}} ->
-        {:error,
-        "GeoServer error (#{status}): Check if workspace, coveragestore exists! Verify the data being passed."}
+        {:ok, coverage_name}
+
+      {:ok, %{status: status, body: body}} ->
+        {:error, {:http_error, status, body}}
+
       {:error, error} ->
-        {:error,
-        "HTTP error: #{inspect(error)} — Check if workspace, coveragestore exists! Verify the data being passed."}
+        {:error, {:request_failed, error}}
     end
   end
 
@@ -161,38 +149,14 @@ defmodule GeoserverConfig.Coverages do
   end
 
   defp build_bbox(%{minx: minx, maxx: maxx, miny: miny, maxy: maxy}, crs) when is_binary(crs) do
-    %{
-      "minx" => minx,
-      "maxx" => maxx,
-      "miny" => miny,
-      "maxy" => maxy,
-      "crs" => crs
-    }
-  end
-
-  defp build_bbox(%{minx: minx, maxx: maxx, miny: miny, maxy: maxy}, crs) when is_binary(crs) do
-    %{
-      "minx" => minx,
-      "maxx" => maxx,
-      "miny" => miny,
-      "maxy" => maxy,
-      "crs" => build_crs(crs)
-    }
+    %{"minx" => minx, "maxx" => maxx, "miny" => miny, "maxy" => maxy, "crs" => crs}
   end
 
   defp build_bbox(%{minx: minx, maxx: maxx, miny: miny, maxy: maxy}, crs) when is_map(crs) do
-    %{
-      "minx" => minx,
-      "maxx" => maxx,
-      "miny" => miny,
-      "maxy" => maxy,
-      "crs" => crs
-    }
+    %{"minx" => minx, "maxx" => maxx, "miny" => miny, "maxy" => maxy, "crs" => crs}
   end
 
-  defp build_bbox(_, _) do
-    nil
-  end
+  defp build_bbox(_, _), do: nil
 
   defp build_grid(grid_params, crs) when is_map(grid_params) do
     %{
@@ -230,45 +194,45 @@ defmodule GeoserverConfig.Coverages do
   Deletes a coverage layer from a workspace and coverage store.
 
   ## Parameters
-    - `workspace` (`String.t`) — The workspace name.
-    - `coverage_store` (`String.t`) — The coverage store name.
-    - `coverage_name` (`String.t`) — The name of the coverage to delete.
-    - `recurse` (`boolean`, optional) — If `true`, deletes linked resources as well.
+
+    - `conn` — a `GeoserverConfig.Connection`
+    - `workspace` — the workspace name
+    - `coverage_store` — the coverage store name
+    - `coverage_name` — name of the coverage to delete
+    - `recurse` — if `true`, deletes linked resources as well (default: `false`)
 
   ## Returns
-    - `{:ok, message}` on success
-    - `{:error, reason}` on failure
+
+    - `{:ok, coverage_name}` on success
+    - `{:error, {:not_found, coverage_name}}` when coverage does not exist
+    - `{:error, {:http_error, status, body}}` on other HTTP failure
+    - `{:error, {:request_failed, reason}}` on transport error
 
   ## Example
-      GeoserverConfig.Coverages.delete_coverage("demo_workspace", "dem_store", "dem_layer", true)
+
+      {:ok, "dem_layer"} = GeoserverConfig.Coverages.delete_coverage(conn, "demo_workspace", "dem_store", "dem_layer", true)
   """
-  def delete_coverage(workspace, coverage_store, coverage_name, recurse \\ false) do
-    url = "#{@base_url}/workspaces/#{workspace}/coveragestores/#{coverage_store}/coverages/#{coverage_name}"
+  def delete_coverage(%Connection{} = conn, workspace, coverage_store, coverage_name, recurse \\ false) do
+    url = "#{conn.base_url}/workspaces/#{workspace}/coveragestores/#{coverage_store}/coverages/#{coverage_name}"
 
-    query_params = if recurse do
-      [{"recurse", "true"}]
-    else
-      []
-    end
+    query_params = if recurse, do: [{"recurse", "true"}], else: []
 
-    case Req.delete(
-          url,
-          auth: {:basic, "#{@username}:#{@password}"},
-          headers: [{"Accept", "application/json"}],
-          params: query_params
-        ) do
+    case Req.delete(url,
+           auth: Connection.auth(conn),
+           headers: [{"Accept", "application/json"}],
+           params: query_params
+         ) do
       {:ok, %Req.Response{status: 200}} ->
-        {:ok, "Coverage '#{coverage_name}' deleted successfully."}
+        {:ok, coverage_name}
 
       {:ok, %Req.Response{status: 404}} ->
-        {:error, "Coverage '#{coverage_name}' not found."}
+        {:error, {:not_found, coverage_name}}
 
-      {:ok, %Req.Response{status: status}} ->
-        {:error, "Failed to delete coverage. Status: #{status}, Response: Check if workspace, coveragestore exists and is correctly passed}"}
+      {:ok, %Req.Response{status: status, body: body}} ->
+        {:error, {:http_error, status, body}}
 
       {:error, reason} ->
-        {:error, "Request error during coverage deletion: #{inspect(reason)}"}
+        {:error, {:request_failed, reason}}
     end
   end
-
 end

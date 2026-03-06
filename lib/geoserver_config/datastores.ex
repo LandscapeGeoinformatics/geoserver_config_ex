@@ -2,59 +2,45 @@ defmodule GeoserverConfig.Datastores do
   @moduledoc """
   Provides functions to manage GeoServer datastores via its REST API.
 
-  This module allows you to list, create, update, and delete datastores within a specific
-  GeoServer workspace. It supports multiple datastore types including PostGIS, GeoPackage,
-  Shapefile, and WFS. Authentication is handled using basic auth credentials provided
-  via environment variables.
+  Supports listing, creating, updating, and deleting datastores within a specific
+  GeoServer workspace. All functions require a `GeoserverConfig.Connection` as their
+  first argument.
 
-  ## Supported Datastore Types
+  ## Supported datastore types
 
-    - `"postgis"` — PostgreSQL/PostGIS datastore
+    - `"postgis"` — PostgreSQL/PostGIS
     - `"geopkg"` — GeoPackage file
-    - `"shapefile"` — Shapefile (local or remote)
+    - `"shapefile"` — Shapefile
     - `"wfs"` — Web Feature Service
 
-  ## Environment Variables
+  ## Example
 
-    - `GEOSERVER_BASE_URL` — Base URL of the GeoServer instance
-    - `GEOSERVER_USERNAME` — Username for authentication
-    - `GEOSERVER_PASSWORD` — Password for authentication
+      conn = GeoserverConfig.Connection.from_env()
+      {:ok, stores} = GeoserverConfig.Datastores.list_datastores(conn, "demo_workspace")
   """
 
-  @base_url System.get_env("GEOSERVER_BASE_URL")
-  @username System.get_env("GEOSERVER_USERNAME")
-  @password System.get_env("GEOSERVER_PASSWORD")
+  alias GeoserverConfig.Connection
 
   @doc """
   Lists all datastores in the given workspace.
 
-  ## Parameters
-    - `workspace` (`String.t`) — The name of the workspace to list datastores from.
-
   ## Returns
-    - `%Req.Response{}` with JSON response body containing datastore list.
+
+    - `{:ok, [datastore]}` on success
+    - `{:error, {:http_error, status, body}}` on non-200 response
+    - `{:error, exception}` on transport error
 
   ## Example
-      GeoserverConfig.Datastores.list_datastores("demo_workspace")
+
+      {:ok, stores} = GeoserverConfig.Datastores.list_datastores(conn, "demo_workspace")
   """
-  # def list_datastores(workspace) do
-  #   url = "#{@base_url}/workspaces/#{workspace}/datastores"
+  def list_datastores(%Connection{} = conn, workspace) do
+    url = "#{conn.base_url}/workspaces/#{workspace}/datastores"
 
-  #   Req.get!(
-  #     url,
-  #     auth: {:basic, "#{@username}:#{@password}"},
-  #     headers: [{"Accept", "application/json"}]
-  #   )
-  # end
-
-  def list_datastores(workspace) do
-    url = "#{@base_url}/workspaces/#{workspace}/datastores"
-
-    case Req.get(
-          url,
-          auth: {:basic, "#{@username}:#{@password}"},
-          headers: [{"accept", "application/json"}]
-        ) do
+    case Req.get(url,
+           auth: Connection.auth(conn),
+           headers: [{"Accept", "application/json"}]
+         ) do
       {:ok, %Req.Response{status: 200, body: %{"dataStores" => %{"dataStore" => stores}}}}
       when is_list(stores) ->
         {:ok, stores}
@@ -78,17 +64,21 @@ defmodule GeoserverConfig.Datastores do
   Creates a new datastore in the specified workspace.
 
   ## Parameters
-    - `workspace` (`String.t`) — The workspace name.
-    - `name` (`String.t`) — The name for the new datastore.
-    - `type` (`String.t`) — The datastore type (e.g., `"postgis"`, `"geopkg"`).
-    - `connection_params` (`map`) — Connection parameters specific to the datastore type.
+
+    - `conn` — a `GeoserverConfig.Connection`
+    - `workspace` — the workspace name
+    - `name` — name for the new datastore
+    - `type` — datastore type (`"postgis"`, `"geopkg"`, `"shapefile"`, `"wfs"`)
+    - `connection_params` — map of connection parameters specific to the type
 
   ## Returns
-    - `{:ok, "Datastore created successfully"}` on success.
-    - `{:error, reason}` on failure.
+
+    - `{:ok, name}` on success
+    - `{:error, reason}` on failure
 
   ## Example
-      GeoserverConfig.Datastores.create_datastore("demo_workspace", "my_store", "postgis", %{
+
+      {:ok, "my_store"} = GeoserverConfig.Datastores.create_datastore(conn, "demo_workspace", "my_store", "postgis", %{
         host: "localhost",
         port: 5432,
         database: "gis",
@@ -96,8 +86,8 @@ defmodule GeoserverConfig.Datastores do
         passwd: "secret"
       })
   """
-  def create_datastore(workspace, name, type, connection_params) do
-    url = "#{@base_url}/workspaces/#{workspace}/datastores"
+  def create_datastore(%Connection{} = conn, workspace, name, type, connection_params) do
+    url = "#{conn.base_url}/workspaces/#{workspace}/datastores"
 
     body = %{
       "dataStore" => %{
@@ -108,46 +98,54 @@ defmodule GeoserverConfig.Datastores do
       }
     }
 
-    response =
-      Req.post!(
-        url,
-        auth: {:basic, "#{@username}:#{@password}"},
-        json: body,
-        headers: [{"Content-Type", "application/json"}],
-        decode_body: false
-      )
+    case Req.post(url,
+           auth: Connection.auth(conn),
+           json: body,
+           headers: [{"Content-Type", "application/json"}],
+           decode_body: false
+         ) do
+      {:ok, %Req.Response{status: 201}} ->
+        {:ok, name}
 
-    case response.status do
-      201 ->
-        {:ok, "Datastore created successfully"}
+      {:ok, %Req.Response{status: 500, body: body}} ->
+        {:error, String.trim(body)}
 
-      500 ->
-        {:error, String.trim(response.body)} # Likely plain text error like "Store already exists"
+      {:ok, %Req.Response{status: status, body: body}} ->
+        {:error, {:http_error, status, body}}
 
-      _ ->
-        {:error, "Unexpected response (#{response.status}): #{inspect(response.body)}"}
+      {:error, exception} ->
+        {:error, {:request_failed, Exception.message(exception)}}
     end
   end
 
   @doc false
-  # Private method to format the connection parameters based on the datastore type
   defp format_connection_params("geopkg", %{database: db_path}) do
-    %{"entry" => [
-      %{"@key" => "database", "$" => db_path},
-      %{"@key" => "dbtype", "$" => "geopkg"}
-    ]}
+    %{
+      "entry" => [
+        %{"@key" => "database", "$" => db_path},
+        %{"@key" => "dbtype", "$" => "geopkg"}
+      ]
+    }
   end
 
-  defp format_connection_params("postgis", %{host: host, port: port, database: db, user: user, passwd: passwd }) do
-    %{"entry" => [
-      %{"@key" => "host", "$" => host},
-      %{"@key" => "port", "$" => Integer.to_string(port)},
-      %{"@key" => "database", "$" => db},
-      %{"@key" => "user", "$" => user},
-      %{"@key" => "passwd", "$" => passwd},
-      %{"@key" => "dbtype", "$" => "postgis"},
-      %{"@key" => "schema", "$" => "public"}
-    ]}
+  defp format_connection_params("postgis", %{
+         host: host,
+         port: port,
+         database: db,
+         user: user,
+         passwd: passwd
+       }) do
+    %{
+      "entry" => [
+        %{"@key" => "host", "$" => host},
+        %{"@key" => "port", "$" => Integer.to_string(port)},
+        %{"@key" => "database", "$" => db},
+        %{"@key" => "user", "$" => user},
+        %{"@key" => "passwd", "$" => passwd},
+        %{"@key" => "dbtype", "$" => "postgis"},
+        %{"@key" => "schema", "$" => "public"}
+      ]
+    }
   end
 
   defp format_connection_params("shapefile", %{url: file_url}) do
@@ -162,19 +160,25 @@ defmodule GeoserverConfig.Datastores do
   Updates an existing datastore's configuration.
 
   ## Parameters
-    - `workspace` (`String.t`) — The workspace name.
-    - `datastore_name` (`String.t`) — The name of the datastore to update.
-    - `datastore_type` (`String.t`) — Type of the datastore (`"postgis"`, `"geopkg"`, etc.).
-    - `connection_params` (`map`) — New connection parameters.
 
-  ## Output
-    - Prints success or failure message to the console.
+    - `conn` — a `GeoserverConfig.Connection`
+    - `workspace` — workspace name
+    - `datastore_name` — name of the datastore to update
+    - `datastore_type` — type of the datastore
+    - `connection_params` — new connection parameters (may include `:description`)
+
+  ## Returns
+
+    - `{:ok, datastore_name}` on success
+    - `{:error, {:http_error, status, body}}` on failure
+    - `{:error, {:request_failed, message}}` on transport error
 
   ## Example
-      GeoserverConfig.Datastores.update_datastore("demo_workspace", "my_store", "postgis", %{...})
+
+      {:ok, "my_store"} = GeoserverConfig.Datastores.update_datastore(conn, "demo_workspace", "my_store", "postgis", %{...})
   """
-  def update_datastore(workspace, datastore_name, datastore_type, connection_params) do
-    url = "#{@base_url}/workspaces/#{workspace}/datastores/#{datastore_name}"
+  def update_datastore(%Connection{} = conn, workspace, datastore_name, datastore_type, connection_params) do
+    url = "#{conn.base_url}/workspaces/#{workspace}/datastores/#{datastore_name}"
 
     body = %{
       "dataStore" => %{
@@ -184,16 +188,19 @@ defmodule GeoserverConfig.Datastores do
       }
     }
 
-    response = Req.put!(
-      url,
-      auth: {:basic, "#{@username}:#{@password}"},
-      json: body,
-      headers: [{"Content-Type", "application/json"}]
-    )
+    case Req.put(url,
+           auth: Connection.auth(conn),
+           json: body,
+           headers: [{"Content-Type", "application/json"}]
+         ) do
+      {:ok, %Req.Response{status: 200}} ->
+        {:ok, datastore_name}
 
-    case response.status do
-      200 -> IO.puts("Datastore #{datastore_name} successfully updated.")
-      _ -> IO.puts("Failed to update datastore #{datastore_name}. Response Status: #{response.status}")
+      {:ok, %Req.Response{status: status, body: body}} ->
+        {:error, {:http_error, status, body}}
+
+      {:error, exception} ->
+        {:error, {:request_failed, Exception.message(exception)}}
     end
   end
 
@@ -201,29 +208,38 @@ defmodule GeoserverConfig.Datastores do
   Deletes a datastore from the given workspace.
 
   ## Parameters
-    - `workspace` (`String.t`) — The workspace name.
-    - `datastore_name` (`String.t`) — Name of the datastore to delete.
-    - `recurse` (`boolean`, optional) — Whether to also delete associated resources (default: `false`).
 
-  ## Output
-    - Prints success or failure message to the console.
+    - `conn` — a `GeoserverConfig.Connection`
+    - `workspace` — workspace name
+    - `datastore_name` — name of the datastore to delete
+    - `recurse` — if `true`, also deletes associated resources (default: `false`)
+
+  ## Returns
+
+    - `{:ok, datastore_name}` on success
+    - `{:error, {:http_error, status, body}}` on failure
+    - `{:error, {:request_failed, message}}` on transport error
 
   ## Example
-      GeoserverConfig.Datastores.delete_datastore("demo_workspace", "my_store", true)
+
+      {:ok, "my_store"} = GeoserverConfig.Datastores.delete_datastore(conn, "demo_workspace", "my_store", true)
   """
-  def delete_datastore(workspace, datastore_name, recurse \\ false) do
+  def delete_datastore(%Connection{} = conn, workspace, datastore_name, recurse \\ false) do
     recurse_param = if recurse, do: "true", else: "false"
-    url = "#{@base_url}/workspaces/#{workspace}/datastores/#{datastore_name}?recurse=#{recurse_param}"
+    url = "#{conn.base_url}/workspaces/#{workspace}/datastores/#{datastore_name}?recurse=#{recurse_param}"
 
-    response = Req.delete!(
-      url,
-      auth: {:basic, "#{@username}:#{@password}"},
-      headers: [{"Accept", "application/json"}]
-    )
+    case Req.delete(url,
+           auth: Connection.auth(conn),
+           headers: [{"Accept", "application/json"}]
+         ) do
+      {:ok, %Req.Response{status: 200}} ->
+        {:ok, datastore_name}
 
-    case response.status do
-      200 -> IO.puts("Datastore #{datastore_name} successfully deleted.")
-      _ -> IO.puts("Failed to delete datastore #{datastore_name}. Response Status: #{response.status}")
+      {:ok, %Req.Response{status: status, body: body}} ->
+        {:error, {:http_error, status, body}}
+
+      {:error, exception} ->
+        {:error, {:request_failed, Exception.message(exception)}}
     end
   end
 end

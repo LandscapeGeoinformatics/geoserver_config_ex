@@ -1,3 +1,0 @@
-﻿workspace,store_name,geotiff_path,description
-demo_test,dem_3x3_test1,file:///home/geoadmin/run/ut_sdi_2021/SDI/dems/dem_3x3.tif,demo_test_coverage description
-demo_test,dem_3x3_test2,file:///home/geoadmin/run/ut_sdi_2021/SDI/dems/dem_3x3.tif,demo_test_coverage
