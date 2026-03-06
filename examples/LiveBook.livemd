@@ -2,112 +2,130 @@
 
 ## Overview
 
-This LiveBook demonstrates how to use the local `geoserver_config` package to manage GeoServer CRUD
+This LiveBook demonstrates how to use the `geoserver_config` library to manage GeoServer
+resources via the REST API: workspaces, datastores, coverage stores, coverages, styles,
+and layer groups.
 
-## Setup Local Dependency
+## Setup
 
-First, we need to install the local dependency:
+Install the library and its dependencies. Adjust the path to point at your local checkout,
+or replace with a hex/git reference once published.
 
 ```elixir
 Mix.install([
-  {:req, "~> 0.5.0"},
-  {:geoserver_config, path: "D:/Elixir Intern/aoraki-portal/geoserver_config"}
+  {:req, "~> 0.5"},
+  {:geoserver_config, path: Path.expand("../")}
 ])
+```
+
+## Connection
+
+Build a connection once and pass it to every API call. The cell below reads from environment
+variables. You can also use `GeoserverConfig.Connection.new/3` to supply values directly.
+
+```elixir
+# Set these in your shell before starting Livebook, or replace with literal strings here.
+#
+#   export GEOSERVER_BASE_URL="http://localhost:8080/geoserver/rest"
+#   export GEOSERVER_USERNAME="admin"
+#   export GEOSERVER_PASSWORD="geoserver"
+
+conn = GeoserverConfig.Connection.from_env()
 ```
 
 ## Workspaces CRUD
 
 ```elixir
-alias GeoserverConfig
-GeoserverConfig.fetch_workspaces()
+# GET — list all workspaces
+GeoserverConfig.Workspaces.fetch_workspaces(conn)
 ```
 
 ```elixir
-GeoserverConfig.Workspaces.create_workspace("new_workspace_name")
-```
-
-<!-- livebook:{"branch_parent_index":2} -->
-
-## Workspace PUT Method (Its unautorized to change the name of Workspace, but If you use the same name then it gets updated(no use at all)).
-
-```elixir
-GeoserverConfig.Workspaces.update_workspace("new_workspace_name", "new_workspace_name")
+# POST — create a workspace
+GeoserverConfig.Workspaces.create_workspace(conn, "my_workspace")
 ```
 
 ```elixir
-GeoserverConfig.Workspaces.delete_workspace("new_workspace_name")
+# PUT — rename a workspace (may be rejected by GeoServer depending on version)
+GeoserverConfig.Workspaces.update_workspace(conn, "my_workspace", "my_workspace_renamed")
+```
+
+```elixir
+# DELETE — remove a workspace
+GeoserverConfig.Workspaces.delete_workspace(conn, "my_workspace")
 ```
 
 ## Datastores CRUD
 
 ```elixir
-# Datastores: GET Method
-GeoserverConfig.Datastores.list_datastores("demo_test")
+# GET — list datastores in a workspace
+GeoserverConfig.Datastores.list_datastores(conn, "my_workspace")
 ```
 
 ```elixir
-# Datastore POST Method
+# POST — create a PostGIS datastore
 GeoserverConfig.Datastores.create_datastore(
-  "demo_test",  # Workspace name
-  "demostore_postgis2",  # Datastore name
-  "postgis",  # The datastore type
+  conn,
+  "my_workspace",
+  "my_postgis_store",
+  "postgis",
   %{
     host: "localhost",
     port: 5432,
-    database: "opengeo",
-    user: "opengeo",
-    passwd: "opengeo"
+    database: "my_database",
+    user: "db_user",
+    passwd: "db_password"
   }
 )
 ```
 
 ```elixir
-# Datastore PUT Method
-GeoserverConfig.Datastores.update_datastore("demo_test", "demostore_postgis2", "postgis", %{
-   description: "Tagram bagram",
-   host: "localhost",
-   port: 5432,
-   database: "opengeo",
-   user: "openhaider",
-   passwd: "opengeo"
- })
+# PUT — update a datastore
+GeoserverConfig.Datastores.update_datastore(conn, "my_workspace", "my_postgis_store", "postgis", %{
+  description: "Updated description",
+  host: "localhost",
+  port: 5432,
+  database: "my_database",
+  user: "db_user",
+  passwd: "db_password"
+})
 ```
 
 ```elixir
-# DataStore Delete Method
-GeoserverConfig.Datastores.delete_datastore("demo_test", "demostore_postgis2", true)
+# DELETE — remove a datastore (true = also delete dependent feature types)
+GeoserverConfig.Datastores.delete_datastore(conn, "my_workspace", "my_postgis_store", true)
 ```
 
-## CoverageStore CRUD
+## Coverage Store CRUD
 
 ```elixir
-# Coverage Stores Fetch Method
-GeoserverConfig.Coveragestores.list_coveragestores("demo_test")
+# GET — list coverage stores in a workspace
+GeoserverConfig.Coveragestores.list_coveragestores(conn, "my_workspace")
 ```
 
 ```elixir
-# Coverage Store Post Method
+# POST — local GeoTIFF coverage store
 GeoserverConfig.Coveragestores.create_coveragestore(
-  "demo_test",        # workspace
-  "dem_3x3_test1",     # storename
-  "/home/geoadmin/run/ut_sdi_2021/SDI/dems/dem_3x3.tif",  # Local GeoTIFF file path
-  "A description of the coverage store"
+  conn,
+  "my_workspace",
+  "my_dem_store",
+  "file:///data/rasters/my_dem.tif",
+  "Digital elevation model"
 )
 ```
 
 ```elixir
-# POST METHOD "COG GeoTIFF" Coverage Store
-
+# POST — Cloud Optimized GeoTIFF (COG) coverage store served over HTTP
 GeoserverConfig.Coveragestores.create_coveragestore(
-   "demo_test",          # workspace
-   "demo_cog_test",      # storename
-   "cog://https://storage.googleapis.com/geo-assets/dcube_pub/estonia/sentinel2/ndvi/2024/est_s2_ndvi_2024-06-01_2024-08-31_cog.tif",
-   "Test for GeoTIFF COG",
-   %{
-     connectionParameters: "",
-     metadata: %{
-       "entry" => %{
-         "@key" => "CogSettings.Key",
+  conn,
+  "my_workspace",
+  "my_cog_store",
+  "cog://https://example.com/data/my_layer_cog.tif",
+  "COG raster served over HTTP",
+  %{
+    metadata: %{
+      "entry" => %{
+        "@key" => "CogSettings.Key",
         "cogSettings" => %{
           "useCachingStream" => false,
           "rangeReaderSettings" => "HTTP"
@@ -120,51 +138,52 @@ GeoserverConfig.Coveragestores.create_coveragestore(
 ```
 
 ```elixir
-# PUT Method CoverageStore
+# PUT — update a coverage store
 GeoserverConfig.Coveragestores.update_coveragestore(
-  "demo_test",           # workspace
-  "dem_3x3_test1",       # store name
+  conn,
+  "my_workspace",
+  "my_dem_store",
   %{
     type: "GeoTIFF",
     enabled: true,
-    url: "file:///home/geoadmin/run/ut_sdi_2021/SDI/dems/dem_3x3.tif",
+    url: "file:///data/rasters/my_dem_updated.tif",
     description: "Updated description"
   }
 )
 ```
 
 ```elixir
-# Delete Method: Coverage Store
-GeoserverConfig.Coveragestores.delete_coveragestore("demo_test", "demo_cog_test")
+# DELETE — remove a coverage store
+GeoserverConfig.Coveragestores.delete_coveragestore(conn, "my_workspace", "my_cog_store")
 ```
 
-## Coverages/Layers CRUD
+## Coverages (Raster Layers) CRUD
 
 ```elixir
-# GET Method: Coverages
-GeoserverConfig.list_coverages("demo_test", "dem_3x3_test")
+# GET — list coverages in a coverage store
+GeoserverConfig.Coverages.list_coverages(conn, "my_workspace", "my_dem_store")
 ```
 
 ```elixir
-# POST Method: Coverages
-file_path = "file:///home/geoadmin/run/ut_sdi_2021/SDI/dems/dem_3x3.tif"
+# POST — create a coverage layer
+file_path = "file:///data/rasters/my_dem.tif"
 
-response = GeoserverConfig.Coverages.create_coverage(
-  "demo_test",             # workspace
-  
-  "dem_3x3_test",          # coveragestore
-  "dem_test_coverage1",    # coveragelayer
+GeoserverConfig.Coverages.create_coverage(
+  conn,
+  "my_workspace",
+  "my_dem_store",
+  "my_dem_layer",
   %{
-    title: "dem_test_coverage1",
-    description: "Testing Layers for Geotiff",
-    abstract: "Testing the Coverage Store",
-    srs: "EPSG:3301",
-    native_crs: "EPSG:3301",
-    native_bbox: %{minx: 369000.0, maxx: 740000.0, miny: 6377000.0, maxy: 6635000.0},
-    latlon_bbox: %{minx: 21.664072036889028, maxx: 28.275493984062805, miny: 57.47121886444548, maxy: 59.83122737438482},
+    title: "My DEM Layer",
+    description: "Digital elevation model coverage",
+    abstract: "Raster coverage layer example",
+    srs: "EPSG:4326",
+    native_crs: "EPSG:4326",
+    native_bbox: %{minx: -180.0, maxx: 180.0, miny: -90.0, maxy: 90.0},
+    latlon_bbox: %{minx: -180.0, maxx: 180.0, miny: -90.0, maxy: 90.0},
     grid: %{
-      dimension: [634, 477],
-      transform: [10.0, 0.0, 369000.0, 0.0, -10.0, 6635000.0]
+      dimension: [3600, 1800],
+      transform: [0.1, 0.0, -180.0, 0.0, -0.1, 90.0]
     },
     metadata: %{
       "cacheAgeMax" => 3600,
@@ -176,24 +195,24 @@ response = GeoserverConfig.Coverages.create_coverage(
 ```
 
 ```elixir
-# DELETE Method: Coverages
-GeoserverConfig.delete_coverage("demo_test", "dem_3x3_test", "dem_test_coverage1", "true")
+# DELETE — remove a coverage layer (true = also remove dependent resources)
+GeoserverConfig.Coverages.delete_coverage(conn, "my_workspace", "my_dem_store", "my_dem_layer", true)
 ```
 
 ## Styles CRUD
 
 ```elixir
-# GET Method: Styles
-GeoserverConfig.list_styles()
+# GET — list all global styles
+GeoserverConfig.Styles.list_styles(conn)
 ```
 
 ```elixir
-# GET Method: Styles (Workspace Specific)
-GeoserverConfig.list_styles_workspace_specific("demo_test")
+# GET — list workspace-specific styles
+GeoserverConfig.Styles.list_styles_workspace_specific(conn, "my_workspace")
 ```
 
 ```elixir
-# POST Method: Styles
+# POST — create a style (remove the workspace key for a global style)
 sld_content = """
 <?xml version="1.0" encoding="UTF-8"?>
 <StyledLayerDescriptor version="1.0.0"
@@ -206,12 +225,9 @@ sld_content = """
     <Name>default_raster</Name>
     <UserStyle>
       <Title>Default Raster</Title>
-      <Abstract>A sample style that draws a raster, good for displaying imagery</Abstract>
+      <Abstract>A sample style that draws a raster with 100% opacity</Abstract>
       <FeatureTypeStyle>
         <Rule>
-          <Name>rule1</Name>
-          <Title>Opaque Raster</Title>
-          <Abstract>A raster with 100% opacity</Abstract>
           <RasterSymbolizer>
             <Opacity>1.0</Opacity>
           </RasterSymbolizer>
@@ -222,23 +238,23 @@ sld_content = """
 </StyledLayerDescriptor>
 """
 
-GeoserverConfig.Styles.create_style(%{
-  name: "dem_test_style2",
+GeoserverConfig.Styles.create_style(conn, %{
+  name: "my_raster_style",
   sld_content: sld_content,
-  filename: "dem.sld"
-  # workspace: "demo_test"  # Add Workspace if style is Workspace specific
+  filename: "my_raster_style.sld"
+  # workspace: "my_workspace"  # uncomment to scope the style to a workspace
 })
 ```
 
 ```elixir
-# PUT Method: Styles
+# PUT — update a style
 updated_sld = """
 <?xml version="1.0" encoding="UTF-8"?>
 <StyledLayerDescriptor version="1.0.0" xmlns="http://www.opengis.net/sld">
   <NamedLayer>
-    <Name>Ghichkam</Name>
+    <Name>my_roads</Name>
     <UserStyle>
-      <Title>Updated Roads Style</Title>
+      <Title>Roads Style</Title>
       <FeatureTypeStyle>
         <Rule>
           <LineSymbolizer>
@@ -254,23 +270,155 @@ updated_sld = """
 </StyledLayerDescriptor>
 """
 
-GeoserverConfig.Styles.update_style(%{
-  name: "dem_test_style2",
+GeoserverConfig.Styles.update_style(conn, %{
+  name: "my_raster_style",
   sld_content: updated_sld,
-  filename: "updated_dem.sld",
-  # workspace: "demo_test"
+  filename: "my_raster_style.sld"
+  # workspace: "my_workspace"
 })
-
 ```
 
 ```elixir
-# DELETE Method: Styles (We need to add workspace name of style if workspace specific and recurse:true to TRUE if style is assigned to layer)
-GeoserverConfig.delete_style("dem_test_style2", nil , recurse: true)
+# DELETE — remove a style
+# recurse: true unassigns it from layers first; purge: true removes associated files
+GeoserverConfig.Styles.delete_style(conn, "my_raster_style", nil, recurse: true)
 ```
 
-## Assigning Style to Layers
+## Assigning a Style to a Layer
 
 ```elixir
-#Assigning Style to layer (Workspace name, Layer Name, Style name to be assigned, Style workspace if style is workspace specific else nil)
-GeoserverConfig.assign_style_to_layer("demo_test", "dem_test_coverage", "dem_test_style", "demo_test")
+# Assign a style as the default for a layer.
+# Pass the style's workspace as the last argument, or nil for a global style.
+GeoserverConfig.assign_style_to_layer(
+  conn,
+  "my_workspace",
+  "my_dem_layer",
+  "my_raster_style",
+  "my_workspace"
+)
+```
+
+## Layer Groups CRUD
+
+```elixir
+# GET — list all layer groups
+GeoserverConfig.LayerGroups.list_layer_groups(conn)
+```
+
+```elixir
+# POST — create a layer group from XML
+xml_body = """
+<?xml version="1.0" encoding="UTF-8"?>
+<layerGroup>
+  <name>my_layer_group</name>
+  <mode>SINGLE</mode>
+  <title>My Layer Group</title>
+  <abstractTxt>A group combining multiple layers</abstractTxt>
+  <publishables>
+    <published type="layer">
+      <name>my_workspace:my_dem_layer</name>
+    </published>
+    <published type="layer">
+      <name>my_workspace:my_vector_layer</name>
+    </published>
+  </publishables>
+  <styles>
+    <style>
+      <name>my_workspace:my_raster_style</name>
+    </style>
+    <style>
+      <name>my_workspace:my_vector_style</name>
+    </style>
+  </styles>
+  <bounds>
+    <minx>-180</minx>
+    <maxx>180</maxx>
+    <miny>-90</miny>
+    <maxy>90</maxy>
+    <crs>EPSG:4326</crs>
+  </bounds>
+</layerGroup>
+"""
+
+GeoserverConfig.LayerGroups.create_layer_group(conn, xml_body)
+```
+
+```elixir
+# POST — create a layer group from a map (JSON)
+json_body = %{
+  "layerGroup" => %{
+    "name" => "my_layer_group",
+    "mode" => "SINGLE",
+    "title" => "My Layer Group",
+    "abstractTxt" => "A group combining multiple layers",
+    "publishables" => %{
+      "published" => [
+        %{"@type" => "layer", "name" => "my_workspace:my_dem_layer"},
+        %{"@type" => "layer", "name" => "my_workspace:my_vector_layer"}
+      ]
+    },
+    "styles" => %{
+      "style" => [
+        %{"name" => "my_workspace:my_raster_style"},
+        %{"name" => "my_workspace:my_vector_style"}
+      ]
+    },
+    "bounds" => %{
+      "minx" => -180, "maxx" => 180, "miny" => -90, "maxy" => 90,
+      "crs" => "EPSG:4326"
+    }
+  }
+}
+
+GeoserverConfig.LayerGroups.create_layer_group(conn, json_body)
+```
+
+```elixir
+# PUT — update a layer group
+json_update_body = %{
+  "layerGroup" => %{
+    "name" => "my_layer_group",
+    "title" => "My Updated Layer Group",
+    "publishables" => %{
+      "published" => [
+        %{"@type" => "layer", "name" => "my_workspace:my_dem_layer"},
+        %{"@type" => "layer", "name" => "my_workspace:my_vector_layer"},
+        %{"@type" => "layer", "name" => "my_workspace:my_extra_layer"}
+      ]
+    },
+    "styles" => %{
+      "style" => [
+        %{"name" => "my_workspace:my_raster_style"},
+        %{"name" => "my_workspace:my_vector_style"},
+        %{"name" => "my_workspace:my_extra_style"}
+      ]
+    }
+  }
+}
+
+GeoserverConfig.LayerGroups.update_layer_group(conn, "my_layer_group", json_update_body)
+```
+
+```elixir
+# Add a single layer to an existing group
+GeoserverConfig.LayerGroups.add_layer_to_group(
+  conn,
+  "my_layer_group",
+  "my_workspace:my_extra_layer",
+  "my_workspace:my_extra_style"
+)
+```
+
+```elixir
+# Remove a single layer from a group
+GeoserverConfig.LayerGroups.remove_layer_from_group(
+  conn,
+  "my_layer_group",
+  "my_workspace:my_extra_layer"
+)
+```
+
+```elixir
+# DELETE — remove a layer group
+GeoserverConfig.LayerGroups.delete_layer_group(conn, "my_layer_group")
 ```

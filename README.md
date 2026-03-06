@@ -1,74 +1,114 @@
-```markdown
 # GeoServer Configuration Elixir Client
 
-This Elixir application provides a convenient way to interact with GeoServer's REST API to manage workspaces, datastores, and coveragestores.
+An Elixir library for interacting with GeoServer's REST API to manage workspaces,
+datastores, coverage stores, coverages, styles, and layer groups.
 
 ## Prerequisites
 
-- Elixir 1.17+ installed
-- Req HTTP client (included in mix.exs dependencies)
-- GeoServer instance with REST API enabled
+- Elixir 1.17+
+- A running GeoServer instance with the REST API enabled
 - Valid GeoServer credentials
 
-## Setup
+## Installation
 
-1. Clone the repository
-2. Install dependencies:
+Add to your `mix.exs`:
 
-   ```bash
-   mix deps.get
-   ```
-3. Set environment variables:
-   ```bash
-   export GEOSERVER_USERNAME="your_username"
-   export GEOSERVER_PASSWORD="your_password"
-   export GEOSERVER_BASE_URL="your_geoserver_base_url/rest"
-   ```
+```elixir
+def deps do
+  [
+    {:geoserver_config, github: "your-org/geoserver_config_ex"}
+  ]
+end
+```
+
+## Connection
+
+Every API function takes a `GeoserverConfig.Connection` as its first argument.
+Build one at application startup and pass it wherever needed.
+
+**From environment variables** (read at runtime, never at compile time):
+
+```bash
+export GEOSERVER_BASE_URL="http://localhost:8080/geoserver/rest"
+export GEOSERVER_USERNAME="admin"
+export GEOSERVER_PASSWORD="geoserver"
+```
+
+```elixir
+conn = GeoserverConfig.Connection.from_env()
+```
+
+**From explicit values:**
+
+```elixir
+conn = GeoserverConfig.Connection.new(
+  "http://localhost:8080/geoserver/rest",
+  "admin",
+  "geoserver"
+)
+```
+
+**From your application's config** (`config/runtime.exs`):
+
+```elixir
+# config/runtime.exs
+config :my_app, :geoserver,
+  base_url: System.get_env("GEOSERVER_BASE_URL"),
+  username: System.get_env("GEOSERVER_USERNAME"),
+  password: System.get_env("GEOSERVER_PASSWORD")
+```
+
+```elixir
+conn = GeoserverConfig.Connection.from_application_env(:my_app)
+# custom key: GeoserverConfig.Connection.from_application_env(:my_app, :geo_api)
+```
+
+**Custom env prefix** (useful for multiple GeoServer instances):
+
+```elixir
+# reads STAGING_GEOSERVER_BASE_URL, STAGING_GEOSERVER_USERNAME, ...
+conn = GeoserverConfig.Connection.from_env(prefix: "STAGING_GEOSERVER")
+```
 
 ## Workspace Operations
 
-### List All Workspaces
 ```elixir
-GeoserverConfig.Workspaces.fetch_workspaces()
+{:ok, workspaces} = GeoserverConfig.Workspaces.fetch_workspaces(conn)
+
+{:ok, "new_ws"} = GeoserverConfig.Workspaces.create_workspace(conn, "new_ws")
+
+{:ok, "new_name"} = GeoserverConfig.Workspaces.update_workspace(conn, "old_name", "new_name")
+
+{:ok, "old_ws"} = GeoserverConfig.Workspaces.delete_workspace(conn, "old_ws")
 ```
 
-### Create a Workspace
-```elixir
-GeoserverConfig.Workspaces.create_workspace("new_workspace_name")
-```
-
-### Update a Workspace (ineffective - renaming is unauthorized)
-```elixir
-GeoserverConfig.Workspaces.update_workspace("old_name", "new_name")
-```
-
-### Delete a Workspace
-```elixir
-GeoserverConfig.Workspaces.delete_workspace("workspace_to_delete")
-```
+> Note: GeoServer may reject workspace renames depending on its version and configuration.
 
 ## Datastore Operations
 
-### List Datastores in a Workspace
 ```elixir
-GeoserverConfig.Datastores.list_datastores("workspace_name")
+{:ok, stores} = GeoserverConfig.Datastores.list_datastores(conn, "workspace_name")
 ```
 
-### Create Datastore (Shapefile)
+**Shapefile:**
+
 ```elixir
-GeoserverConfig.Datastores.create_datastore(
+{:ok, "my_store"} = GeoserverConfig.Datastores.create_datastore(
+  conn,
   "workspace_name",
-  "datastore_name",
+  "my_store",
   "shapefile",
   %{url: "file:///path/to/shapefile_directory"}
 )
 ```
 
-### Create Datastore (PostGIS)
+**PostGIS:**
+
 ```elixir
-GeoserverConfig.Datastores.create_datastore(
+{:ok, "my_store"} = GeoserverConfig.Datastores.create_datastore(
+  conn,
   "workspace_name",
-  "datastore_name",
+  "my_store",
   "postgis",
   %{
     host: "localhost",
@@ -80,64 +120,64 @@ GeoserverConfig.Datastores.create_datastore(
 )
 ```
 
-### Create Datastore (GeoPackage)
+**GeoPackage:**
+
 ```elixir
-GeoserverConfig.Datastores.create_datastore(
+{:ok, "my_store"} = GeoserverConfig.Datastores.create_datastore(
+  conn,
   "workspace_name",
-  "datastore_name",
+  "my_store",
   "geopkg",
   %{database: "file:///path/to/file.gpkg"}
 )
 ```
 
-### Update Datastore
+**Update:**
+
 ```elixir
-GeoserverConfig.Datastores.update_datastore(
+{:ok, "my_store"} = GeoserverConfig.Datastores.update_datastore(
+  conn,
   "workspace_name",
-  "old_datastore_name",
-  "shapefile", # or "postgis", "geopkg"
-  %{
-    description: "New description",
-    url: "file:///new/path" # or PostGIS/GeoPackage params
-  }
+  "my_store",
+  "shapefile",
+  %{description: "New description", url: "file:///new/path"}
 )
 ```
 
-### Delete Datastore
+**Delete** (`recurse: true` also removes dependent feature types):
+
 ```elixir
-GeoserverConfig.Datastores.delete_datastore(
-  "workspace_name",
-  "datastore_name",
-  true # set to false if you don't want recursive delete
-)
+{:ok, "my_store"} = GeoserverConfig.Datastores.delete_datastore(conn, "workspace_name", "my_store", true)
 ```
 
-## Coveragestore Operations
+## Coverage Store Operations
 
-### List Coveragestores in a Workspace
 ```elixir
-GeoserverConfig.Coveragestores.list_coveragestores("workspace_name")
+{:ok, stores} = GeoserverConfig.Coveragestores.list_coveragestores(conn, "workspace_name")
 ```
 
-### Create Coveragestore (Local GeoTIFF)
+**Local GeoTIFF:**
+
 ```elixir
-GeoserverConfig.Coveragestores.create_coveragestore(
+{:ok, "dem_store"} = GeoserverConfig.Coveragestores.create_coveragestore(
+  conn,
   "workspace_name",
-  "coveragestore_name",
+  "dem_store",
   "file:///path/to/geotiff.tif",
   "Optional description"
 )
 ```
 
-### Create COG GeoTIFF Coverage Store in GeoServer
-```
-GeoserverConfig.Coveragestores.create_coveragestore(
+**Cloud Optimized GeoTIFF (COG) via S3 or HTTP:**
+
+```elixir
+{:ok, "dem_store"} = GeoserverConfig.Coveragestores.create_coveragestore(
+  conn,
   "workspace_name",
-  "coveragestore_name",
-  "cog://https://path.to/your/cog_geotiff_cog.tif",
-  "Description of your coverage store",
+  "dem_store",
+  "cog://https://path.to/your/file_cog.tif",
+  "COG from HTTP",
   %{
-    connectionParameters: "",
     metadata: %{
       "entry" => %{
         "@key" => "CogSettings.Key",
@@ -152,11 +192,13 @@ GeoserverConfig.Coveragestores.create_coveragestore(
 )
 ```
 
-### Update Coveragestore
+**Update:**
+
 ```elixir
-GeoserverConfig.Coveragestores.update_coveragestore(
+{:ok, "dem_store"} = GeoserverConfig.Coveragestores.update_coveragestore(
+  conn,
   "workspace_name",
-  "store_name",
+  "dem_store",
   %{
     type: "GeoTIFF",
     enabled: true,
@@ -166,40 +208,37 @@ GeoserverConfig.Coveragestores.update_coveragestore(
 )
 ```
 
-### Delete Coveragestore
+**Delete** (uses `purge=true` to remove related resources):
+
 ```elixir
-GeoserverConfig.Coveragestores.delete_coveragestore(
-  "workspace_name",
-  "coveragestore_name"
-)
+{:ok, "dem_store"} = GeoserverConfig.Coveragestores.delete_coveragestore(conn, "workspace_name", "dem_store")
 ```
 
 ## Coverage Layer Operations
 
-### List Coverages
-
 ```elixir
-GeoserverConfig.list_coverages("workspace_name", "coveragestore_name")
+{:ok, coverages} = GeoserverConfig.Coverages.list_coverages(conn, "workspace_name", "dem_store")
 ```
 
-### Create Coverage Layer
+**Create:**
 
 ```elixir
-GeoserverConfig.Coverages.create_coverage(
+{:ok, "dem_layer"} = GeoserverConfig.Coverages.create_coverage(
+  conn,
   "workspace_name",
-  "coveragestore_name",
-  "coverage_layer_name",
+  "dem_store",
+  "dem_layer",
   %{
-    title: "Layer Title",
-    description: "Layer Description",
-    abstract: "Abstract info",
+    title: "DEM Layer",
+    description: "Digital Elevation Model",
+    abstract: "Raster coverage layer",
     srs: "EPSG:3301",
     native_crs: "EPSG:3301",
-    native_bbox: %{minx: ..., maxx: ..., miny: ..., maxy: ...},
-    latlon_bbox: %{minx: ..., maxx: ..., miny: ..., maxy: ...},
+    native_bbox: %{minx: 369000.0, maxx: 740000.0, miny: 6377000.0, maxy: 6635000.0},
+    latlon_bbox: %{minx: 21.664, maxx: 28.275, miny: 57.471, maxy: 59.831},
     grid: %{
-      dimension: [width, height],
-      transform: [scale_x, 0.0, translate_x, 0.0, scale_y, translate_y]
+      dimension: [3710, 2580],
+      transform: [10.0, 0.0, 369000.0, 0.0, -10.0, 6635000.0]
     },
     metadata: %{
       "cacheAgeMax" => 3600,
@@ -210,91 +249,130 @@ GeoserverConfig.Coverages.create_coverage(
 )
 ```
 
-### Delete Coverage Layer
+**Delete** (`recurse: true` also removes dependent resources):
 
 ```elixir
-GeoserverConfig.delete_coverage("workspace_name", "coveragestore_name", "coverage_layer_name", "true")
+{:ok, "dem_layer"} = GeoserverConfig.Coverages.delete_coverage(conn, "workspace_name", "dem_store", "dem_layer", true)
 ```
 
 ## Style Operations
 
-### List All Styles
 ```elixir
-GeoserverConfig.list_styles()
+{:ok, styles} = GeoserverConfig.Styles.list_styles(conn)
+
+{:ok, styles} = GeoserverConfig.Styles.list_styles_workspace_specific(conn, "workspace_name")
 ```
 
-### List Workspace Specific Styles
+**Get SLD content** (pass `nil` as workspace for global styles):
+
 ```elixir
-GeoserverConfig.list_styles_workspace_specific("workspace_name")
+{:ok, sld_xml} = GeoserverConfig.Styles.get_style(conn, "workspace_name", "style_name")
+{:ok, sld_xml} = GeoserverConfig.Styles.get_style(conn, nil, "global_style")
+
+# Save to disk (no connection needed)
+{:ok, %{file_path: path, size: bytes}} = GeoserverConfig.Styles.write_sld_file("/tmp/style.sld", sld_xml)
 ```
 
-### Create Style
+**Create:**
+
 ```elixir
-GeoserverConfig.Styles.create_style(%{
-  name: "style_name",
+{:ok, "my_style"} = GeoserverConfig.Styles.create_style(conn, %{
+  name: "my_style",
   sld_content: "<StyledLayerDescriptor>...</StyledLayerDescriptor>",
-  filename: "style.sld",
-  # Optional: workspace: "workspace_name"
+  filename: "my_style.sld",
+  workspace: "workspace_name"  # omit for a global style
 })
 ```
 
-### Update Style
+**Update:**
+
 ```elixir
-GeoserverConfig.Styles.update_style(%{
-  name: "style_name",
-  sld_content: "<UpdatedSLD>...</UpdatedSLD>",
-  filename: "updated_style.sld",
+{:ok, "my_style"} = GeoserverConfig.Styles.update_style(conn, %{
+  name: "my_style",
+  sld_content: "<StyledLayerDescriptor>...</StyledLayerDescriptor>",
   workspace: "workspace_name"
 })
 ```
 
-### Delete Style
+**Delete:**
+
 ```elixir
-GeoserverConfig.delete_style("style_name", "workspace_name", recurse: true)
+{:ok, "my_style"} = GeoserverConfig.Styles.delete_style(conn, "my_style", "workspace_name", purge: true, recurse: true)
+
+# Global style
+{:ok, "my_style"} = GeoserverConfig.Styles.delete_style(conn, "my_style")
 ```
 
 ## Assign Style to Layer
+
+Verifies the style exists before assigning it:
+
 ```elixir
-GeoserverConfig.assign_style_to_layer(
+# Style from the same or global scope
+{:ok, msg} = GeoserverConfig.StyleAssignToLayer.assign_style_to_layer(
+  conn,
+  "workspace_name",
+  "layer_name",
+  "style_name"
+)
+
+# Style from a specific workspace
+{:ok, msg} = GeoserverConfig.StyleAssignToLayer.assign_style_to_layer(
+  conn,
   "workspace_name",
   "layer_name",
   "style_name",
-  "workspace_name" # style workspace if applicable
+  "style_workspace"
 )
 ```
 
+## Layer Group Operations
+
+```elixir
+{:ok, groups} = GeoserverConfig.LayerGroups.list_layer_groups(conn)
+
+# Create from XML or a map
+{:ok, _} = GeoserverConfig.LayerGroups.create_layer_group(conn, xml_string)
+{:ok, _} = GeoserverConfig.LayerGroups.create_layer_group(conn, %{"layerGroup" => %{"name" => "my-group"}})
+
+# Update
+{:ok, _} = GeoserverConfig.LayerGroups.update_layer_group(conn, "my-group", updated_xml)
+
+# Add / remove layers
+{:ok, _} = GeoserverConfig.LayerGroups.add_layer_to_group(conn, "my-group", "ws:layer1", "ws:style1")
+{:ok, _} = GeoserverConfig.LayerGroups.remove_layer_from_group(conn, "my-group", "ws:layer1")
+
+{:ok, "my-group"} = GeoserverConfig.LayerGroups.delete_layer_group(conn, "my-group")
+```
 
 ## Error Handling
 
-All functions return either:
-- Success tuple `{:ok, message}` for 200/201 responses
-- Error tuple `{:error, reason}` for failures
+All functions return tagged tuples. Pattern match to handle each case:
 
-You can pattern match on these responses to handle success/failure cases.
+```elixir
+case GeoserverConfig.Workspaces.fetch_workspaces(conn) do
+  {:ok, workspaces} ->
+    IO.inspect(workspaces)
 
-## Configuration
+  {:error, {:http_error, status, body}} ->
+    IO.puts("GeoServer returned #{status}: #{inspect(body)}")
 
-The application uses the following environment variables:
-- `GEOSERVER_USERNAME`: Your GeoServer username
-- `GEOSERVER_PASSWORD`: Your GeoServer password
-- `GEOSERVER_BASE_URL`: Base URL of your GeoServer instance
+  {:error, {:not_found, name}} ->
+    IO.puts("#{name} does not exist")
+
+  {:error, {:request_failed, reason}} ->
+    IO.puts("Transport error: #{inspect(reason)}")
+end
+```
 
 ## Notes
 
-1. For file paths, use `file://` prefix for GeoServer compatibility
-2. When deleting resources, set `recurse=true` to delete all dependent resources
-3. Coverage layer creation requires detailed bounding box and CRS info
-4. Supports both local and cloud-based COG files (cog:// scheme)
-5. Compatible with styles scoped globally or per workspace
+- Use `file://` prefix for local file paths passed to GeoServer (e.g. `file:///data/dem.tif`)
+- Use `cog://` prefix for Cloud Optimized GeoTIFFs served over HTTP or S3
+- Coverage layer creation requires bounding box and CRS information matching the source raster
+- Styles can be scoped globally or per workspace; pass `nil` as workspace for global styles
+- `recurse: true` / `purge: true` options cascade deletes to dependent resources
 
 ## License
 
-[MIT License](LICENSE)
-```
-
-This README provides:
-1. Clear setup instructions
-2. Comprehensive usage examples for all CRUD operations
-3. Error handling information
-4. Configuration details
-5. Notes about important considerations
+MIT License

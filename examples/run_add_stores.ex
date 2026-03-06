@@ -1,17 +1,38 @@
-# base url for geoserver "https://maps.landscape-geoinformatics.org/geoserver/rest"
+# Example: bulk-create COG coverage stores for multiple time periods or indices.
+#
+# Run with:  mix run examples/run_add_stores.ex
+#
+# Export connection settings before running:
+#
+#   export GEOSERVER_BASE_URL="http://localhost:8080/geoserver/rest"
+#   export GEOSERVER_USERNAME="admin"
+#   export GEOSERVER_PASSWORD="geoserver"
 
-# function to add stores for different indices for different years
-createStore = fn year ->
-  collection_short = "s2"
-  collection = "sentinel2"
-  index = "ndmi"
+conn = GeoserverConfig.Connection.from_env()
+
+# ---------------------------------------------------------------------------
+# Example 1: create stores for a spectral index across multiple years
+# ---------------------------------------------------------------------------
+#
+# Adjust workspace, collection, index, and the COG URL template to match
+# your actual data layout.
+
+workspace = "my_workspace"
+collection_short = "s2"
+collection = "sentinel2"
+index = "ndvi"
+
+create_seasonal_store = fn year ->
+  store_name = "#{collection_short}_#{index}_#{year}_summer"
+  cog_url = "cog://https://example.com/data/#{collection}/#{index}/#{year}/#{collection_short}_#{index}_#{year}-06-01_#{year}-08-31_cog.tif"
+
   response = GeoserverConfig.Coveragestores.create_coveragestore(
-    "dcube_pub",
-    "est_#{collection_short}_#{index}_#{year}_summer",
-    "cog://https://s3.hpc.ut.ee/geokuup/estonia/#{collection}/#{index}/#{year}/est_#{collection_short}_#{index}_#{year}-06-01_#{year}-08-31_cog.tif",
-    "Store for #{String.upcase(index)} #{year} summer",
+    conn,
+    workspace,
+    store_name,
+    cog_url,
+    "#{String.upcase(index)} #{year} summer composite",
     %{
-      connectionParameters: "",
       metadata: %{
         "entry" => %{
           "@key" => "CogSettings.Key",
@@ -24,25 +45,32 @@ createStore = fn year ->
       disableOnConnFailure: false
     }
   )
-  IO.inspect(response)
+
+  IO.inspect(response, label: store_name)
 end
 
-years = [2017, 2018, 2019, 2020, 2021, 2022, 2023]
+years = [2020, 2021, 2022, 2023]
 
-# run the function
+# Uncomment to run:
 # Enum.each(years, fn year ->
-#   createStore.(year)
+#   create_seasonal_store.(year)
 # end)
 
-# function to add stores for topo indices
-createTopoStore = fn topoIndex ->
+# ---------------------------------------------------------------------------
+# Example 2: create stores for a set of topographic indices
+# ---------------------------------------------------------------------------
+
+create_topo_store = fn topo_index ->
+  store_name = "topo_#{topo_index}"
+  cog_url = "cog://https://example.com/data/topo/#{topo_index}_10m_cog.tif"
+
   response = GeoserverConfig.Coveragestores.create_coveragestore(
-    "dcube_pub",
-    "est_topo_#{topoIndex}",
-    "cog://https://s3.hpc.ut.ee/geokuup/estonia/topo/#{topoIndex}_10m_clipped_cog.tif",
-    "Store for #{topoIndex}",
+    conn,
+    workspace,
+    store_name,
+    cog_url,
+    "Topographic index: #{topo_index}",
     %{
-      connectionParameters: "",
       metadata: %{
         "entry" => %{
           "@key" => "CogSettings.Key",
@@ -55,12 +83,13 @@ createTopoStore = fn topoIndex ->
       disableOnConnFailure: false
     }
   )
-  IO.inspect(response)
+
+  IO.inspect(response, label: store_name)
 end
 
-topoIndices = ["dem", "lsfaktor", "slope", "tri", "twi"]
+topo_indices = ["dem", "slope", "aspect", "tri", "twi"]
 
-# run the function
-# Enum.each(topoIndices, fn index ->
-#   createTopoStore.(index)
+# Uncomment to run:
+# Enum.each(topo_indices, fn index ->
+#   create_topo_store.(index)
 # end)
