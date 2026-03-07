@@ -16,7 +16,7 @@ Add to your `mix.exs`:
 ```elixir
 def deps do
   [
-    {:geoserver_config, github: "your-org/geoserver_config_ex"}
+    {:geoserver_config, "~> 0.2.4"}
   ]
 end
 ```

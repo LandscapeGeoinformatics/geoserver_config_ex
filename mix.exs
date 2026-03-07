@@ -4,11 +4,27 @@ defmodule GeoserverConfig.MixProject do
   def project do
     [
       app: :geoserver_config,
-      version: "0.2.4",
+      version: "0.2.5",
       elixir: "~> 1.17",
       start_permanent: Mix.env() == :prod,
       elixirc_paths: elixirc_paths(Mix.env()),
-      deps: deps()
+      description: "An Elixir client for the GeoServer REST API.",
+      package: package(),
+      deps: deps(),
+      name: "GeoserverConfig",
+      source_url: "https://github.com/LandscapeGeoinformatics/geoserver_config_ex",
+      docs: [
+        main: "GeoserverConfig",
+        extras: ["README.md"]
+      ]
+    ]
+  end
+
+  defp package do
+    [
+      maintainers: ["Alexander Kmoch", "Zeshan Hyder"],
+      licenses: ["MIT"],
+      links: %{"GitHub" => "https://github.com/LandscapeGeoinformatics/geoserver_config_ex"}
     ]
   end
 
@@ -18,18 +34,17 @@ defmodule GeoserverConfig.MixProject do
   # Run "mix help compile.app" to learn about applications.
   def application do
     [
-      extra_applications: [:logger, :finch]
+      extra_applications: [:logger]
     ]
   end
 
   # Run "mix help deps" to learn about dependencies.
   defp deps do
     [
-      # {:dep_from_hexpm, "~> 0.3.0"},
-      # {:dep_from_git, git: "https://github.com/elixir-lang/my_dep.git", tag: "0.1.0"}
       {:req, "~> 0.5"},
       {:sweet_xml, "~> 0.7.3"},
       {:jason, "~> 1.4"},
+      {:ex_doc, "~> 0.31", only: :dev, runtime: false},
       {:plug, "~> 1.0", only: :test}
     ]
   end
