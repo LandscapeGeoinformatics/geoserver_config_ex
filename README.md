@@ -263,7 +263,7 @@ conn = GeoserverConfig.Connection.from_env(prefix: "STAGING_GEOSERVER")
 {:ok, styles} = GeoserverConfig.Styles.list_styles_workspace_specific(conn, "workspace_name")
 ```
 
-**Get SLD content** (pass `nil` as workspace for global styles):
+**Get style content** (pass `nil` as workspace for global styles):
 
 ```elixir
 {:ok, sld_xml} = GeoserverConfig.Styles.get_style(conn, "workspace_name", "style_name")
@@ -273,33 +273,112 @@ conn = GeoserverConfig.Connection.from_env(prefix: "STAGING_GEOSERVER")
 {:ok, %{file_path: path, size: bytes}} = GeoserverConfig.Styles.write_sld_file("/tmp/style.sld", sld_xml)
 ```
 
-**Create:**
+**Create SLD or CSS styles with auto-detection:**
 
 ```elixir
-{:ok, "my_style"} = GeoserverConfig.Styles.create_style(conn, %{
-  name: "my_style",
-  sld_content: "<StyledLayerDescriptor>...</StyledLayerDescriptor>",
-  filename: "my_style.sld",
-  workspace: "workspace_name"  # omit for a global style
+# SLD style (explicit format)
+{:ok, "sld_style"} = GeoserverConfig.Styles.create_style(conn, %{
+  name: "sld_style",
+  content: "<StyledLayerDescriptor>...</StyledLayerDescriptor>",
+  format: :sld,
+  workspace: "workspace_name"
+})
+
+# CSS style (explicit format)
+{:ok, "css_style"} = GeoserverConfig.Styles.create_style(conn, %{
+  name: "css_style",
+  content: "* { stroke: red; fill: blue; }",
+  format: :css
+})
+
+# Auto-detect format from filename
+{:ok, "auto_style"} = GeoserverConfig.Styles.create_style(conn, %{
+  name: "auto_style",
+  content: "* { stroke: red; }",
+  filename: "style.css"  # Auto-detects CSS format
+})
+
+# Global style (omit workspace)
+{:ok, "global_style"} = GeoserverConfig.Styles.create_style(conn, %{
+  name: "global_style",
+  content: "<StyledLayerDescriptor>...</StyledLayerDescriptor>"
 })
 ```
 
-**Update:**
+**Update styles (supports both SLD and CSS):**
 
 ```elixir
 {:ok, "my_style"} = GeoserverConfig.Styles.update_style(conn, %{
   name: "my_style",
-  sld_content: "<StyledLayerDescriptor>...</StyledLayerDescriptor>",
+  content: "<StyledLayerDescriptor>...</StyledLayerDescriptor>",
+  format: :sld,
   workspace: "workspace_name"
+})
+
+# Update CSS style
+{:ok, "css_style"} = GeoserverConfig.Styles.update_style(conn, %{
+  name: "css_style",
+  content: "* { stroke: blue; }",
+  format: :css
 })
 ```
 
-**Delete:**
+**Copy styles between workspaces:**
 
 ```elixir
-{:ok, "my_style"} = GeoserverConfig.Styles.delete_style(conn, "my_style", "workspace_name", purge: true, recurse: true)
+# Copy from global to workspace
+{:ok, "ws_style"} = GeoserverConfig.Styles.copy_style(
+  conn,
+  "global_style",
+  nil,  # source workspace (nil = global)
+  "ws_style",  # target name
+  "target_workspace"  # target workspace
+)
 
-# Global style
+# Copy between workspaces
+{:ok, "copied_style"} = GeoserverConfig.Styles.copy_style(
+  conn,
+  "source_style",
+  "source_workspace",
+  "copied_style",
+  "target_workspace"
+)
+```
+
+**Move styles between workspaces:**
+
+```elixir
+# Move from workspace to global
+{:ok, "moved_style"} = GeoserverConfig.Styles.move_style(
+  conn,
+  "style_name",
+  "source_workspace",
+  nil  # target workspace (nil = global)
+)
+
+# Move between workspaces with purge
+{:ok, "moved_style"} = GeoserverConfig.Styles.move_style(
+  conn,
+  "style_name",
+  "source_workspace",
+  "target_workspace",
+  purge: true  # Purge original files
+)
+```
+
+**Delete styles:**
+
+```elixir
+# Delete workspace style with purge
+{:ok, "my_style"} = GeoserverConfig.Styles.delete_style(
+  conn, 
+  "my_style", 
+  "workspace_name", 
+  purge: true, 
+  recurse: true
+)
+
+# Delete global style
 {:ok, "my_style"} = GeoserverConfig.Styles.delete_style(conn, "my_style")
 ```
 
@@ -371,7 +450,9 @@ end
 - Use `cog://` prefix for Cloud Optimized GeoTIFFs served over HTTP or S3
 - Coverage layer creation requires bounding box and CRS information matching the source raster
 - Styles can be scoped globally or per workspace; pass `nil` as workspace for global styles
+- Style format (SLD vs CSS) is auto-detected from content or can be specified explicitly
 - `recurse: true` / `purge: true` options cascade deletes to dependent resources
+- Style copy/move operations preserve all style content and metadata
 
 ## License
 

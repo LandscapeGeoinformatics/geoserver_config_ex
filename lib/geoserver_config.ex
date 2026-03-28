@@ -103,6 +103,8 @@ defmodule GeoserverConfig do
   defdelegate write_sld_file(style_file_path, sld_content), to: Styles
   defdelegate create_style(conn, opts), to: Styles
   defdelegate update_style(conn, opts), to: Styles
+  defdelegate copy_style(conn, source_style, source_workspace, target_style, target_workspace, opts), to: Styles
+  defdelegate move_style(conn, style_name, source_workspace, target_workspace, opts), to: Styles
 
   def delete_style(%Connection{} = conn, style_name, workspace \\ nil, opts \\ []) do
     Styles.delete_style(conn, style_name, workspace, opts)
