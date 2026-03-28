@@ -27,3 +27,6 @@ mix.lock
 .env.local
 
 ref_test/
+
+geoserver_src/
+.elixir_ls/
