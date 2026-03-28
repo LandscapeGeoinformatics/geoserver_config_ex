@@ -90,9 +90,10 @@ conn = GeoserverConfig.Connection.from_env(prefix: "STAGING_GEOSERVER")
 {:ok, stores} = GeoserverConfig.Datastores.list_datastores(conn, "workspace_name")
 ```
 
-**Shapefile:**
+**Shapefile (with enhanced options):**
 
 ```elixir
+# Basic shapefile directory
 {:ok, "my_store"} = GeoserverConfig.Datastores.create_datastore(
   conn,
   "workspace_name",
@@ -100,11 +101,21 @@ conn = GeoserverConfig.Connection.from_env(prefix: "STAGING_GEOSERVER")
   "shapefile",
   %{url: "file:///path/to/shapefile_directory"}
 )
+
+# Shapefile with charset support
+{:ok, "my_store"} = GeoserverConfig.Datastores.create_datastore(
+  conn,
+  "workspace_name",
+  "my_store",
+  "shapefile",
+  %{url: "file:///path/to/shapes", charset: "ISO-8859-1"}
+)
 ```
 
-**PostGIS:**
+**PostGIS (with comprehensive connection parameters):**
 
 ```elixir
+# Basic PostGIS connection
 {:ok, "my_store"} = GeoserverConfig.Datastores.create_datastore(
   conn,
   "workspace_name",
@@ -118,17 +129,49 @@ conn = GeoserverConfig.Connection.from_env(prefix: "STAGING_GEOSERVER")
     passwd: "db_password"
   }
 )
+
+# Enhanced PostGIS with connection pooling and performance settings
+{:ok, "my_store"} = GeoserverConfig.Datastores.create_datastore(
+  conn,
+  "workspace_name",
+  "my_store",
+  "postgis",
+  %{
+    host: "localhost",
+    port: 5432,
+    database: "db_name",
+    user: "db_user",
+    passwd: "db_password",
+    schema: "custom_schema",
+    "max connections": "20",
+    "min connections": "5",
+    "Connection timeout": "30",
+    "Loose bbox": "true",
+    "Estimated extends": "true",
+    "Expose primary keys": "true"
+  }
+)
 ```
 
-**GeoPackage:**
+**GeoPackage (with table support):**
 
 ```elixir
+# Basic GeoPackage
 {:ok, "my_store"} = GeoserverConfig.Datastores.create_datastore(
   conn,
   "workspace_name",
   "my_store",
   "geopkg",
   %{database: "file:///path/to/file.gpkg"}
+)
+
+# GeoPackage with specific table
+{:ok, "my_store"} = GeoserverConfig.Datastores.create_datastore(
+  conn,
+  "workspace_name",
+  "my_store",
+  "geopkg",
+  %{database: "file:///path/to/file.gpkg", table: "my_layer"}
 )
 ```
 
@@ -148,6 +191,83 @@ conn = GeoserverConfig.Connection.from_env(prefix: "STAGING_GEOSERVER")
 
 ```elixir
 {:ok, "my_store"} = GeoserverConfig.Datastores.delete_datastore(conn, "workspace_name", "my_store", true)
+```
+
+## Feature Types (Vector Layers)
+
+Feature types represent vector layers published from datastores. These operations allow you to manage vector data layers for WMS/WFS services.
+
+```elixir
+# List all configured feature types in a datastore
+{:ok, feature_types} = GeoserverConfig.list_featuretypes(conn, "workspace_name", "datastore_name")
+
+# List available (unpublished) feature types
+{:ok, available_types} = GeoserverConfig.list_featuretypes(conn, "workspace_name", "datastore_name", :available)
+
+# List all feature types (configured + available)
+{:ok, all_types} = GeoserverConfig.list_featuretypes(conn, "workspace_name", "datastore_name", :all)
+```
+
+**Create vector layers with comprehensive metadata:**
+
+```elixir
+{:ok, "my_layer"} = GeoserverConfig.create_featuretype(
+  conn,
+  "workspace_name",
+  "datastore_name",
+  "my_layer",
+  %{
+    title: "My Vector Layer",
+    description: "Detailed description of the layer",
+    abstract: "Abstract text for metadata",
+    srs: "EPSG:4326",
+    native_crs: "EPSG:3857",
+    native_bbox: %{minx: -180.0, maxx: 180.0, miny: -90.0, maxy: 90.0},
+    latlon_bbox: %{minx: -180.0, maxx: 180.0, miny: -90.0, maxy: 90.0},
+    enabled: true,
+    keywords: ["vector", "roads", "transportation"],
+    metadata: %{"cacheAgeMax" => 3600, "cachingEnabled" => true}
+  }
+)
+```
+
+**Update existing vector layers:**
+
+```elixir
+{:ok, "my_layer"} = GeoserverConfig.update_featuretype(
+  conn,
+  "workspace_name",
+  "datastore_name",
+  "my_layer",
+  %{
+    title: "Updated Title",
+    description: "Updated description",
+    srs: "EPSG:3857"
+  }
+)
+
+# Update with bounding box recalculation
+{:ok, "my_layer"} = GeoserverConfig.update_featuretype(
+  conn,
+  "workspace_name",
+  "datastore_name",
+  "my_layer",
+  %{title: "Updated Title"},
+  "nativebbox,latlonbbox"  # Recalculate both bounding boxes
+)
+```
+
+**Delete vector layers:**
+
+```elixir
+# Delete layer (recurse: true removes dependent resources)
+{:ok, "my_layer"} = GeoserverConfig.delete_featuretype(
+  conn,
+  "workspace_name",
+  "datastore_name",
+  "my_layer",
+  true  # recurse
+)
 ```
 
 ## Coverage Store Operations
@@ -449,10 +569,12 @@ end
 - Use `file://` prefix for local file paths passed to GeoServer (e.g. `file:///data/dem.tif`)
 - Use `cog://` prefix for Cloud Optimized GeoTIFFs served over HTTP or S3
 - Coverage layer creation requires bounding box and CRS information matching the source raster
+- Feature types (vector layers) support comprehensive metadata including bounding boxes and keywords
 - Styles can be scoped globally or per workspace; pass `nil` as workspace for global styles
 - Style format (SLD vs CSS) is auto-detected from content or can be specified explicitly
 - `recurse: true` / `purge: true` options cascade deletes to dependent resources
 - Style copy/move operations preserve all style content and metadata
+- PostGIS datastores support comprehensive connection pooling and performance parameters
 
 ## License
 
