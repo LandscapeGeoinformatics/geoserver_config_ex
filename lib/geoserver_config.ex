@@ -23,13 +23,50 @@ defmodule GeoserverConfig do
 
   alias GeoserverConfig.Connection
   alias GeoserverConfig.{Workspaces, Datastores, Coveragestores, Coverages}
-  alias GeoserverConfig.{Styles, StyleAssignToLayer, LayerGroups}
+  alias GeoserverConfig.{Styles, StyleAssignToLayer, LayerGroups, FeatureTypes}
 
   # Workspaces
   defdelegate fetch_workspaces(conn), to: Workspaces
   defdelegate create_workspace(conn, workspace_name), to: Workspaces
   defdelegate delete_workspace(conn, workspace_name), to: Workspaces
   defdelegate update_workspace(conn, old_workspace_name, new_workspace_name), to: Workspaces
+
+  # Feature types (vector layers) - also available under FeatureTypes module
+  def list_featuretypes(conn, workspace, datastore, list) do
+    FeatureTypes.list_featuretypes(conn, workspace, datastore, list)
+  end
+
+  def list_featuretypes(conn, workspace, datastore) do
+    FeatureTypes.list_featuretypes(conn, workspace, datastore, :configured)
+  end
+
+  def create_featuretype(conn, workspace, datastore, featuretype_name, params) do
+    FeatureTypes.create_featuretype(conn, workspace, datastore, featuretype_name, params)
+  end
+
+  def create_featuretype(conn, workspace, datastore, featuretype_name) do
+    FeatureTypes.create_featuretype(conn, workspace, datastore, featuretype_name, %{})
+  end
+
+  def update_featuretype(conn, workspace, datastore, featuretype_name, params, recalculate) do
+    FeatureTypes.update_featuretype(conn, workspace, datastore, featuretype_name, params, recalculate)
+  end
+
+  def update_featuretype(conn, workspace, datastore, featuretype_name, params) do
+    FeatureTypes.update_featuretype(conn, workspace, datastore, featuretype_name, params, nil)
+  end
+
+  def update_featuretype(conn, workspace, datastore, featuretype_name) do
+    FeatureTypes.update_featuretype(conn, workspace, datastore, featuretype_name, %{}, nil)
+  end
+
+  def delete_featuretype(conn, workspace, datastore, featuretype_name, recurse) do
+    FeatureTypes.delete_featuretype(conn, workspace, datastore, featuretype_name, recurse)
+  end
+
+  def delete_featuretype(conn, workspace, datastore, featuretype_name) do
+    FeatureTypes.delete_featuretype(conn, workspace, datastore, featuretype_name, false)
+  end
 
   # Datastores
   defdelegate list_datastores(conn, workspace), to: Datastores
@@ -39,6 +76,8 @@ defmodule GeoserverConfig do
   def delete_datastore(conn, workspace, datastore_name, recurse \\ false) do
     Datastores.delete_datastore(conn, workspace, datastore_name, recurse)
   end
+
+
 
   # Coverage stores
   defdelegate list_coveragestores(conn, workspace), to: Coveragestores

@@ -91,6 +91,68 @@ defmodule GeoserverConfig.DatastoresTest do
                  %{host: "localhost", port: 5432, database: "db", user: "u", passwd: "p"}
                )
     end
+
+    test "supports enhanced PostGIS connection parameters" do
+      Req.Test.stub(__MODULE__, fn conn ->
+        conn
+        |> Plug.Conn.put_resp_content_type("application/json")
+        |> Plug.Conn.send_resp(201, "")
+      end)
+
+      params = %{
+        host: "localhost",
+        port: 5432,
+        database: "db",
+        user: "u",
+        passwd: "p",
+        schema: "custom_schema",
+        "max connections": "20",
+        "Loose bbox": "true"
+      }
+
+      assert {:ok, "enhanced_store"} =
+               Datastores.create_datastore(
+                 test_conn(__MODULE__),
+                 "my_workspace",
+                 "enhanced_store",
+                 "postgis",
+                 params
+               )
+    end
+
+    test "supports GeoPackage with table parameter" do
+      Req.Test.stub(__MODULE__, fn conn ->
+        conn
+        |> Plug.Conn.put_resp_content_type("application/json")
+        |> Plug.Conn.send_resp(201, "")
+      end)
+
+      assert {:ok, "gpkg_store"} =
+               Datastores.create_datastore(
+                 test_conn(__MODULE__),
+                 "my_workspace",
+                 "gpkg_store",
+                 "geopkg",
+                 %{database: "file:///path/to/file.gpkg", table: "my_table"}
+               )
+    end
+
+    test "supports shapefile with charset parameter" do
+      Req.Test.stub(__MODULE__, fn conn ->
+        conn
+        |> Plug.Conn.put_resp_content_type("application/json")
+        |> Plug.Conn.send_resp(201, "")
+      end)
+
+      assert {:ok, "shape_store"} =
+               Datastores.create_datastore(
+                 test_conn(__MODULE__),
+                 "my_workspace",
+                 "shape_store",
+                 "shapefile",
+                 %{url: "file:///path/to/shapes", charset: "ISO-8859-1"}
+               )
+    end
   end
 
   describe "delete_datastore/4" do

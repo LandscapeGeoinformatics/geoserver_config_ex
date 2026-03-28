@@ -103,6 +103,16 @@ defmodule GeoserverConfig.Datastores do
     }
   end
 
+  defp format_connection_params("geopkg", %{database: db_path, table: table_name}) do
+    %{
+      "entry" => [
+        %{"@key" => "database", "$" => db_path},
+        %{"@key" => "dbtype", "$" => "geopkg"},
+        %{"@key" => "table", "$" => table_name}
+      ]
+    }
+  end
+
   defp format_connection_params("postgis", %{
          host: host,
          port: port,
@@ -123,12 +133,69 @@ defmodule GeoserverConfig.Datastores do
     }
   end
 
+  defp format_connection_params("postgis", params) do
+    # Comprehensive PostGIS connection parameters
+    entry = %{"@key" => "dbtype", "$" => "postgis"}
+    
+    # Required parameters
+    entry = entry ++ [
+      %{"@key" => "host", "$" => params[:host]},
+      %{"@key" => "port", "$" => Integer.to_string(params[:port])},
+      %{"@key" => "database", "$" => params[:database]},
+      %{"@key" => "user", "$" => params[:user]},
+      %{"@key" => "passwd", "$" => params[:passwd]}
+    ]
+    
+    # Optional parameters
+    entry = add_if_present(entry, params, "schema", "public")
+    entry = add_if_present(entry, params, "max connections", "10")
+    entry = add_if_present(entry, params, "min connections", "1")
+    entry = add_if_present(entry, params, "fetch size", "1000")
+    entry = add_if_present(entry, params, "Connection timeout", "20")
+    entry = add_if_present(entry, params, "validate connections", "true")
+    entry = add_if_present(entry, params, "Evictor run periodicity", "1800")
+    entry = add_if_present(entry, params, "Max connection idle time", "300")
+    entry = add_if_present(entry, params, "Evictor tests per run", "3")
+    entry = add_if_present(entry, params, "Expose primary keys", "false")
+    entry = add_if_present(entry, params, "Primary key metadata table")
+    entry = add_if_present(entry, params, "Session startup SQL")
+    entry = add_if_present(entry, params, "Session close-up SQL")
+    entry = add_if_present(entry, params, "preparedStatements", "false")
+    entry = add_if_present(entry, params, "Max open prepared statements", "50")
+    entry = add_if_present(entry, params, "Loose bbox", "false")
+    entry = add_if_present(entry, params, "Estimated extends", "true")
+    entry = add_if_present(entry, params, "Encode functions", "false")
+    entry = add_if_present(entry, params, "Support on the fly geometry simplification", "true")
+    
+    %{"entry" => entry}
+  end
+
   defp format_connection_params("shapefile", %{url: file_url}) do
     %{"entry" => [%{"@key" => "url", "$" => file_url}]}
   end
 
+  defp format_connection_params("shapefile", %{url: file_url, charset: charset}) do
+    %{"entry" => [
+      %{"@key" => "url", "$" => file_url},
+      %{"@key" => "charset", "$" => charset}
+    ]}
+  end
+
   defp format_connection_params("wfs", %{capabilities_url: url}) do
     %{"entry" => [%{"@key" => "GET_CAPABILITIES_URL", "$" => url}]}
+  end
+
+  defp add_if_present(entry, params, key, default_value \\ nil) do
+    value = Map.get(params, String.to_atom(key))
+    
+    cond do
+      value ->
+        entry ++ [%{"@key" => key, "$" => value}]
+      default_value ->
+        entry ++ [%{"@key" => key, "$" => default_value}]
+      true ->
+        entry
+    end
   end
 
   @doc """
