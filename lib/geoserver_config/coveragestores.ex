@@ -167,6 +167,9 @@ defmodule GeoserverConfig.Coveragestores do
       {:ok, %Req.Response{status: 200}} ->
         {:ok, name}
 
+      {:ok, %Req.Response{status: 404}} ->
+        {:skipped, name}
+
       {:ok, %Req.Response{status: status, body: body}} ->
         {:error, {:http_error, status, body}}
 

@@ -143,15 +143,18 @@ defmodule GeoserverConfig.ConnectionTest do
   end
 
   describe "req_opts/1" do
-    test "returns only auth when plug is nil" do
+    test "includes auth, timeouts, and retry:false when plug is nil" do
       conn = Connection.new("http://localhost", "admin", "secret")
       opts = Connection.req_opts(conn)
 
       assert opts[:auth] == {:basic, "admin:secret"}
+      assert opts[:retry] == false
+      assert opts[:receive_timeout] == 10_000
+      assert get_in(opts, [:connect_options, :timeout]) == 5_000
       refute Keyword.has_key?(opts, :plug)
     end
 
-    test "includes plug when set" do
+    test "includes plug, timeouts, and retry:false when plug is set" do
       conn = %Connection{
         base_url: "http://localhost",
         username: "admin",
@@ -163,6 +166,9 @@ defmodule GeoserverConfig.ConnectionTest do
 
       assert opts[:auth] == {:basic, "admin:secret"}
       assert opts[:plug] == {Req.Test, :my_stub}
+      assert opts[:retry] == false
+      assert opts[:receive_timeout] == 10_000
+      assert get_in(opts, [:connect_options, :timeout]) == 5_000
     end
   end
 end

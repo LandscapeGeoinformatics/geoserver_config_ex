@@ -180,5 +180,16 @@ defmodule GeoserverConfig.DatastoresTest do
       assert {:ok, "my_store"} =
                Datastores.delete_datastore(test_conn(__MODULE__), "my_workspace", "my_store")
     end
+
+    test "returns {:skipped, name} on 404 (idempotent delete)" do
+      Req.Test.stub(__MODULE__, fn conn ->
+        conn
+        |> Plug.Conn.put_resp_content_type("application/json")
+        |> Plug.Conn.send_resp(404, "")
+      end)
+
+      assert {:skipped, "my_store"} =
+               Datastores.delete_datastore(test_conn(__MODULE__), "my_workspace", "my_store")
+    end
   end
 end

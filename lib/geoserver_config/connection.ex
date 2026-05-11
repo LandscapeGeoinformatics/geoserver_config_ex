@@ -123,18 +123,28 @@ defmodule GeoserverConfig.Connection do
     }
   end
 
+  @connect_timeout 5_000
+  @receive_timeout 10_000
+
   @doc false
   def auth(%__MODULE__{username: username, password: password}) do
     {:basic, "#{username}:#{password}"}
   end
 
   @doc """
-  Returns Req options for this connection: always includes `auth`, and includes
-  `plug` when set (used by tests via `Req.Test`).
+  Returns Req options for this connection.
+
+  Always includes `auth`, `connect_options`, `receive_timeout`, and `retry: false`.
+  Also includes `plug` when set (used by tests via `Req.Test`).
 
   Modules in this library call `Connection.req_opts(conn)` and merge their own
-  per-request options on top, so every HTTP call automatically picks up any
-  test adapter set on the connection.
+  per-request options on top, so every HTTP call automatically picks up the
+  timeouts and any test adapter set on the connection.
+
+  ## Timeouts
+
+  - Connect timeout: #{@connect_timeout} ms
+  - Receive timeout: #{@receive_timeout} ms
 
   ## Example (in tests)
 
@@ -145,10 +155,24 @@ defmodule GeoserverConfig.Connection do
         plug: {Req.Test, MyStub}
       }
   """
-  def req_opts(%__MODULE__{plug: nil} = conn), do: [auth: auth(conn)]
-  # When a test plug is set, also disable Req's built-in retry so test stubs are
-  # not called multiple times on simulated transport errors.
-  def req_opts(%__MODULE__{plug: plug} = conn), do: [auth: auth(conn), plug: plug, retry: false]
+  def req_opts(%__MODULE__{plug: nil} = conn) do
+    [
+      auth: auth(conn),
+      connect_options: [timeout: @connect_timeout],
+      receive_timeout: @receive_timeout,
+      retry: false
+    ]
+  end
+
+  def req_opts(%__MODULE__{plug: plug} = conn) do
+    [
+      auth: auth(conn),
+      plug: plug,
+      connect_options: [timeout: @connect_timeout],
+      receive_timeout: @receive_timeout,
+      retry: false
+    ]
+  end
 
   defp fetch_required!(config, field, app, key) do
     case config[field] do

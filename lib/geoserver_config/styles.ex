@@ -153,11 +153,11 @@ defmodule GeoserverConfig.Styles do
         {:ok, response} when response.status in 200..299 ->
           {:ok, opts[:name]}
 
-        {:ok, response} ->
-          {:error, %{status: response.status, body: response.body}}
+        {:ok, %{status: status, body: body}} ->
+          {:error, {:http_error, status, body}}
 
         {:error, reason} ->
-          {:error, reason}
+          {:error, {:request_failed, reason}}
       end
     else
       error -> error
@@ -398,7 +398,7 @@ defmodule GeoserverConfig.Styles do
         {:ok, style_name}
 
       {:ok, %Req.Response{status: 404}} ->
-        {:error, {:not_found, style_name}}
+        {:skipped, style_name}
 
       {:ok, %Req.Response{status: status, body: body}} ->
         {:error, {:http_error, status, body}}

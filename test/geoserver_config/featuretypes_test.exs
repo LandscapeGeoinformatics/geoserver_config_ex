@@ -193,13 +193,24 @@ defmodule GeoserverConfig.FeatureTypesTest do
     test "returns {:ok, name} without recurse flag (default false)" do
       Req.Test.stub(__MODULE__, fn conn ->
         assert String.contains?(conn.query_string, "recurse=false")
-        
+
         conn
         |> Plug.Conn.put_resp_content_type("application/json")
         |> Plug.Conn.send_resp(200, "")
       end)
 
       assert {:ok, "my_layer"} =
+               FeatureTypes.delete_featuretype(test_conn(__MODULE__), "my_workspace", "my_store", "my_layer")
+    end
+
+    test "returns {:skipped, name} on 404 (idempotent delete)" do
+      Req.Test.stub(__MODULE__, fn conn ->
+        conn
+        |> Plug.Conn.put_resp_content_type("application/json")
+        |> Plug.Conn.send_resp(404, "")
+      end)
+
+      assert {:skipped, "my_layer"} =
                FeatureTypes.delete_featuretype(test_conn(__MODULE__), "my_workspace", "my_store", "my_layer")
     end
   end

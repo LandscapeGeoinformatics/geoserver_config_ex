@@ -191,6 +191,9 @@ defmodule GeoserverConfig.FeatureTypes do
       {:ok, %Req.Response{status: 200}} ->
         {:ok, featuretype_name}
 
+      {:ok, %Req.Response{status: 404}} ->
+        {:skipped, featuretype_name}
+
       {:ok, %Req.Response{status: status, body: body}} ->
         {:error, {:http_error, status, body}}
 

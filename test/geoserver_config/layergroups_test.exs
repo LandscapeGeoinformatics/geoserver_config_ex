@@ -5,7 +5,7 @@ defmodule GeoserverConfig.LayerGroupsTest do
 
   alias GeoserverConfig.LayerGroups
 
-  describe "list_layer_groups/1" do
+  describe "list_layer_groups/1 (global)" do
     test "returns {:ok, list} when groups exist" do
       Req.Test.stub(__MODULE__, fn conn ->
         Req.Test.json(conn, %{
@@ -22,12 +22,88 @@ defmodule GeoserverConfig.LayerGroupsTest do
       assert length(groups) == 2
     end
 
-    test "returns {:ok, []} when there are no groups" do
+    test "normalises a single group map to a one-element list" do
+      Req.Test.stub(__MODULE__, fn conn ->
+        Req.Test.json(conn, %{"layerGroups" => %{"layerGroup" => %{"name" => "only_group"}}})
+      end)
+
+      assert {:ok, [%{"name" => "only_group"}]} =
+               LayerGroups.list_layer_groups(test_conn(__MODULE__))
+    end
+
+    test "returns {:ok, []} when there are no groups (empty map)" do
       Req.Test.stub(__MODULE__, fn conn ->
         Req.Test.json(conn, %{"layerGroups" => %{}})
       end)
 
       assert {:ok, []} = LayerGroups.list_layer_groups(test_conn(__MODULE__))
+    end
+
+    test "returns {:ok, []} when GeoServer returns empty string instead of map" do
+      Req.Test.stub(__MODULE__, fn conn ->
+        Req.Test.json(conn, %{"layerGroups" => ""})
+      end)
+
+      assert {:ok, []} = LayerGroups.list_layer_groups(test_conn(__MODULE__))
+    end
+  end
+
+  describe "list_layer_groups/2 (workspace-scoped)" do
+    test "returns groups for the given workspace" do
+      Req.Test.stub(__MODULE__, fn conn ->
+        assert conn.request_path =~ "/workspaces/my_ws/layergroups"
+
+        Req.Test.json(conn, %{
+          "layerGroups" => %{
+            "layerGroup" => [%{"name" => "ws_group"}]
+          }
+        })
+      end)
+
+      assert {:ok, [%{"name" => "ws_group"}]} =
+               LayerGroups.list_layer_groups(test_conn(__MODULE__), "my_ws")
+    end
+
+    test "returns {:ok, []} when workspace has no groups" do
+      Req.Test.stub(__MODULE__, fn conn ->
+        Req.Test.json(conn, %{"layerGroups" => ""})
+      end)
+
+      assert {:ok, []} = LayerGroups.list_layer_groups(test_conn(__MODULE__), "my_ws")
+    end
+
+    test "returns {:error, {:http_error, status, body}} on non-200" do
+      Req.Test.stub(__MODULE__, fn conn ->
+        conn
+        |> Plug.Conn.put_resp_content_type("application/json")
+        |> Plug.Conn.send_resp(404, Jason.encode!(%{"error" => "Workspace not found"}))
+      end)
+
+      assert {:error, {:http_error, 404, _}} =
+               LayerGroups.list_layer_groups(test_conn(__MODULE__), "missing_ws")
+    end
+  end
+
+  describe "delete_layer_group/2" do
+    test "returns {:ok, name} on 200" do
+      Req.Test.stub(__MODULE__, fn conn ->
+        conn
+        |> Plug.Conn.put_resp_content_type("application/json")
+        |> Plug.Conn.send_resp(200, "")
+      end)
+
+      assert {:ok, "my_group"} = LayerGroups.delete_layer_group(test_conn(__MODULE__), "my_group")
+    end
+
+    test "returns {:skipped, name} on 404 (idempotent delete)" do
+      Req.Test.stub(__MODULE__, fn conn ->
+        conn
+        |> Plug.Conn.put_resp_content_type("application/json")
+        |> Plug.Conn.send_resp(404, "")
+      end)
+
+      assert {:skipped, "my_group"} =
+               LayerGroups.delete_layer_group(test_conn(__MODULE__), "my_group")
     end
   end
 

@@ -100,6 +100,21 @@ defmodule GeoserverConfig.StylesTest do
       assert {:error, "Invalid format. Use :sld or :css"} =
                Styles.create_style(test_conn(__MODULE__), opts)
     end
+
+    test "returns {:error, {:http_error, status, body}} on non-2xx" do
+      Req.Test.stub(__MODULE__, fn conn ->
+        conn
+        |> Plug.Conn.put_resp_content_type("application/json")
+        |> Plug.Conn.send_resp(500, Jason.encode!(%{"error" => "Internal error"}))
+      end)
+
+      assert {:error, {:http_error, 500, _}} =
+               Styles.create_style(test_conn(__MODULE__), %{
+                 name: "my_style",
+                 content: "<StyledLayerDescriptor/>",
+                 format: :sld
+               })
+    end
   end
 
   describe "update_style/2 with CSS support" do
@@ -128,6 +143,54 @@ defmodule GeoserverConfig.StylesTest do
 
       assert {:error, "Missing required parameter :content"} =
                Styles.update_style(test_conn(__MODULE__), %{name: "test"})
+    end
+
+    test "returns {:error, {:http_error, status, body}} on non-2xx" do
+      Req.Test.stub(__MODULE__, fn conn ->
+        conn
+        |> Plug.Conn.put_resp_content_type("application/json")
+        |> Plug.Conn.send_resp(404, Jason.encode!(%{"error" => "Not found"}))
+      end)
+
+      assert {:error, {:http_error, 404, _}} =
+               Styles.update_style(test_conn(__MODULE__), %{
+                 name: "missing_style",
+                 content: "<StyledLayerDescriptor/>",
+                 format: :sld
+               })
+    end
+  end
+
+  describe "delete_style/4" do
+    test "returns {:ok, style_name} on 200" do
+      Req.Test.stub(__MODULE__, fn conn ->
+        conn
+        |> Plug.Conn.put_resp_content_type("application/json")
+        |> Plug.Conn.send_resp(200, "")
+      end)
+
+      assert {:ok, "roads_red"} = Styles.delete_style(test_conn(__MODULE__), "roads_red")
+    end
+
+    test "returns {:skipped, style_name} on 404 (idempotent delete)" do
+      Req.Test.stub(__MODULE__, fn conn ->
+        conn
+        |> Plug.Conn.put_resp_content_type("application/json")
+        |> Plug.Conn.send_resp(404, "")
+      end)
+
+      assert {:skipped, "roads_red"} = Styles.delete_style(test_conn(__MODULE__), "roads_red")
+    end
+
+    test "returns {:error, {:http_error, status, body}} on other failure" do
+      Req.Test.stub(__MODULE__, fn conn ->
+        conn
+        |> Plug.Conn.put_resp_content_type("application/json")
+        |> Plug.Conn.send_resp(500, Jason.encode!(%{"error" => "Server error"}))
+      end)
+
+      assert {:error, {:http_error, 500, _}} =
+               Styles.delete_style(test_conn(__MODULE__), "roads_red")
     end
   end
 

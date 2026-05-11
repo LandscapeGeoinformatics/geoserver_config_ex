@@ -8,7 +8,15 @@ defmodule GeoserverConfig.LayerGroups do
   alias GeoserverConfig.Connection
 
   @doc """
-  Lists all layer groups available in GeoServer.
+  Lists all layer groups in GeoServer.
+
+  When `workspace` is provided, only layer groups in that workspace are returned
+  (hitting `/workspaces/:workspace/layergroups`). Without a workspace argument,
+  the global `/layergroups` endpoint is used.
+
+  GeoServer returns a map instead of a list when only one group exists, and
+  returns the string `""` instead of an empty map when no groups exist; both
+  cases are normalised to a list.
 
   ## Returns
 
@@ -17,14 +25,25 @@ defmodule GeoserverConfig.LayerGroups do
     - `{:error, {:request_failed, reason}}` on transport error
   """
   def list_layer_groups(%Connection{} = conn) do
-    url = "#{conn.base_url}/layergroups"
+    do_list_layer_groups(conn, "#{conn.base_url}/layergroups")
+  end
 
+  def list_layer_groups(%Connection{} = conn, workspace) do
+    do_list_layer_groups(conn, "#{conn.base_url}/workspaces/#{workspace}/layergroups")
+  end
+
+  defp do_list_layer_groups(%Connection{} = conn, url) do
     case Req.get(url, Connection.req_opts(conn) ++ [headers: [{"Accept", "application/json"}]]) do
       {:ok, %{status: 200, body: %{"layerGroups" => %{"layerGroup" => groups}}}}
       when is_list(groups) ->
         {:ok, groups}
 
-      {:ok, %{status: 200, body: %{"layerGroups" => %{}}}} ->
+      {:ok, %{status: 200, body: %{"layerGroups" => %{"layerGroup" => group}}}}
+      when is_map(group) ->
+        {:ok, [group]}
+
+      # GeoServer returns "" (empty string) instead of an empty map when no groups exist.
+      {:ok, %{status: 200, body: %{"layerGroups" => _}}} ->
         {:ok, []}
 
       {:ok, %{status: status, body: body}} ->
@@ -82,6 +101,9 @@ defmodule GeoserverConfig.LayerGroups do
     case Req.delete(url, Connection.req_opts(conn) ++ [headers: [{"Accept", "application/json"}]]) do
       {:ok, %Req.Response{status: 200}} ->
         {:ok, name}
+
+      {:ok, %Req.Response{status: 404}} ->
+        {:skipped, name}
 
       {:ok, %Req.Response{status: status, body: body}} ->
         {:error, {:http_error, status, body}}

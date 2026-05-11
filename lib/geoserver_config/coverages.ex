@@ -186,7 +186,7 @@ defmodule GeoserverConfig.Coverages do
         {:ok, coverage_name}
 
       {:ok, %Req.Response{status: 404}} ->
-        {:error, {:not_found, coverage_name}}
+        {:skipped, coverage_name}
 
       {:ok, %Req.Response{status: status, body: body}} ->
         {:error, {:http_error, status, body}}
