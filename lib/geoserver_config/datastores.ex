@@ -135,8 +135,8 @@ defmodule GeoserverConfig.Datastores do
 
   defp format_connection_params("postgis", params) do
     # Comprehensive PostGIS connection parameters
-    entry = %{"@key" => "dbtype", "$" => "postgis"}
-    
+    entry = [%{"@key" => "dbtype", "$" => "postgis"}]
+
     # Required parameters
     entry = entry ++ [
       %{"@key" => "host", "$" => params[:host]},

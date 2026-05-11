@@ -96,15 +96,19 @@ defmodule GeoserverConfig.FeatureTypes do
     # Add bounding boxes if provided
     body = add_bounding_boxes(body, params)
 
-    # Add keywords if provided
-    if keywords = params[:keywords] do
-      body = put_in(body, ["featureType", "keywords"], %{"string" => keywords})
-    end
+    body =
+      if keywords = params[:keywords] do
+        put_in(body, ["featureType", "keywords"], %{"string" => keywords})
+      else
+        body
+      end
 
-    # Add metadata if provided
-    if metadata = params[:metadata] do
-      body = put_in(body, ["featureType", "metadata"], metadata)
-    end
+    body =
+      if metadata = params[:metadata] do
+        put_in(body, ["featureType", "metadata"], metadata)
+      else
+        body
+      end
 
     case Req.post(url,
            Connection.req_opts(conn) ++
