@@ -115,6 +115,8 @@ defmodule GeoserverConfig do
     StyleAssignToLayer.assign_style_to_layer(conn, workspace, layer_name, style_name, style_workspace)
   end
 
+  defdelegate unassign_style_from_layer(conn, workspace, layer_name), to: StyleAssignToLayer
+
   # Layer groups
   defdelegate list_layer_groups(conn), to: LayerGroups
   defdelegate create_layer_group(conn, body), to: LayerGroups

@@ -47,6 +47,13 @@ defmodule GeoserverConfig.FeatureTypes do
       {:ok, %Req.Response{status: 200, body: %{"featureTypes" => _}}} ->
         {:ok, []}
 
+      {:ok, %Req.Response{status: 200, body: %{"list" => %{"string" => names}}}}
+      when is_list(names) ->
+        {:ok, Enum.map(names, &%{"name" => &1})}
+
+      {:ok, %Req.Response{status: 200, body: %{"list" => _}}} ->
+        {:ok, []}
+
       {:ok, %Req.Response{status: status, body: body}} ->
         {:error, {:http_error, status, body}}
 

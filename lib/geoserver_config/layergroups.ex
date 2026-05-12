@@ -28,6 +28,16 @@ defmodule GeoserverConfig.LayerGroups do
     do_list_layer_groups(conn, "#{conn.base_url}/layergroups")
   end
 
+  @doc """
+  Lists layer groups scoped to a specific workspace.
+
+  ## Returns
+
+    - `{:ok, [group]}` on success
+    - `{:error, {:http_error, status, body}}` on non-200 response
+    - `{:error, {:request_failed, reason}}` on transport error
+  """
+
   def list_layer_groups(%Connection{} = conn, workspace) do
     do_list_layer_groups(conn, "#{conn.base_url}/workspaces/#{workspace}/layergroups")
   end
@@ -117,6 +127,8 @@ defmodule GeoserverConfig.LayerGroups do
   Adds a layer with an optional style to a GeoServer layer group.
 
   Fetches the current group state and appends the new layer before updating.
+  If a style name is provided, it is also appended to the group-level
+  `styles` array to maintain the layer:style count parity required by GeoServer.
 
   ## Returns
 
@@ -126,21 +138,24 @@ defmodule GeoserverConfig.LayerGroups do
   def add_layer_to_group(%Connection{} = conn, group_name, layer_name, style_name \\ nil) do
     with {:ok, group} <- fetch_group(conn, group_name) do
       existing_layers = normalize_list(get_in(group, ["publishables", "published"]))
+      existing_styles = normalize_list(get_in(group, ["styles", "style"]))
 
       new_layer = %{"@type" => "layer", "name" => layer_name}
-
-      new_layer =
-        if style_name do
-          Map.put(new_layer, "styles", %{"style" => %{"name" => style_name}})
-        else
-          new_layer
-        end
 
       updated_payload = %{
         "layerGroup" => %{
           "publishables" => %{"published" => existing_layers ++ [new_layer]}
         }
       }
+
+      updated_payload =
+        if style_name do
+          new_style = %{"name" => style_name}
+          put_in(updated_payload, ["layerGroup", "styles"],
+            %{"style" => existing_styles ++ [new_style]})
+        else
+          updated_payload
+        end
 
       update_layer_group(conn, group_name, updated_payload)
     end
@@ -150,6 +165,8 @@ defmodule GeoserverConfig.LayerGroups do
   Removes a layer from a GeoServer layer group.
 
   Fetches the current group state and filters out the named layer before updating.
+  If the group has a matching number of styles, the corresponding style at the
+  same index is also removed to maintain layer:style parity.
 
   ## Returns
 
@@ -160,17 +177,29 @@ defmodule GeoserverConfig.LayerGroups do
   def remove_layer_from_group(%Connection{} = conn, group_name, layer_name) do
     with {:ok, group} <- fetch_group(conn, group_name) do
       existing_layers = normalize_list(get_in(group, ["publishables", "published"]))
+      existing_styles = normalize_list(get_in(group, ["styles", "style"]))
 
       case Enum.find_index(existing_layers, fn l -> l["name"] == layer_name end) do
         nil ->
           {:error, :layer_not_found}
 
         index ->
+          updated_layers = List.delete_at(existing_layers, index)
+
           updated_payload = %{
             "layerGroup" => %{
-              "publishables" => %{"published" => List.delete_at(existing_layers, index)}
+              "publishables" => %{"published" => updated_layers}
             }
           }
+
+          updated_payload =
+            if length(existing_layers) == length(existing_styles) and index < length(existing_styles) do
+              updated_styles = List.delete_at(existing_styles, index)
+              put_in(updated_payload, ["layerGroup", "styles"],
+                %{"style" => updated_styles})
+            else
+              updated_payload
+            end
 
           update_layer_group(conn, group_name, updated_payload)
       end

@@ -171,12 +171,16 @@ defmodule GeoserverConfig.Datastores do
   end
 
   defp format_connection_params("shapefile", %{url: file_url}) do
-    %{"entry" => [%{"@key" => "url", "$" => file_url}]}
+    %{"entry" => [
+      %{"@key" => "url", "$" => file_url},
+      %{"@key" => "dbtype", "$" => "shapefile"}
+    ]}
   end
 
   defp format_connection_params("shapefile", %{url: file_url, charset: charset}) do
     %{"entry" => [
       %{"@key" => "url", "$" => file_url},
+      %{"@key" => "dbtype", "$" => "shapefile"},
       %{"@key" => "charset", "$" => charset}
     ]}
   end

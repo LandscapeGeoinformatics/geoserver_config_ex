@@ -29,6 +29,10 @@ defmodule GeoserverConfig.Workspaces do
       when is_list(workspaces) ->
         {:ok, workspaces}
 
+      {:ok, %Req.Response{status: 200, body: %{"workspaces" => %{"workspace" => workspace}}}}
+      when is_map(workspace) ->
+        {:ok, [workspace]}
+
       {:ok, %Req.Response{status: 200, body: %{"workspaces" => _}}} ->
         {:ok, []}
 
