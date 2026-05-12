@@ -1,7 +1,7 @@
 # GeoServer Configuration Elixir Client
 
 An Elixir library for interacting with GeoServer's REST API to manage workspaces,
-datastores, coverage stores, coverages, styles, and layer groups.
+datastores, feature types, coverage stores, coverages, styles, and layer groups.
 
 ## Prerequisites
 
@@ -16,7 +16,7 @@ Add to your `mix.exs`:
 ```elixir
 def deps do
   [
-    {:geoserver_config, "~> 0.3"}
+    {:geoserver_config, "~> 0.4"}
   ]
 end
 ```
@@ -525,6 +525,25 @@ Verifies the style exists before assigning it:
 )
 ```
 
+**Unassign (remove) the default style from a layer:**
+
+```elixir
+# Dedicated function
+{:ok, msg} = GeoserverConfig.unassign_style_from_layer(
+  conn,
+  "workspace_name",
+  "layer_name"
+)
+
+# Or pass nil/"" as the style name to assign_style_to_layer
+{:ok, msg} = GeoserverConfig.assign_style_to_layer(
+  conn,
+  "workspace_name",
+  "layer_name",
+  nil
+)
+```
+
 ## Layer Group Operations
 
 ```elixir
@@ -575,6 +594,10 @@ end
 - `recurse: true` / `purge: true` options cascade deletes to dependent resources
 - Style copy/move operations preserve all style content and metadata
 - PostGIS datastores support comprehensive connection pooling and performance parameters
+- `add_layer_to_group` and `remove_layer_from_group` automatically maintain the layer:style count parity required by GeoServer
+- Use `list_featuretypes(conn, ws, store, :available)` to list unpublished feature types for PostGIS and GeoPackage datastores
+- `assign_style_to_layer` accepts `nil` or `""` as the style name to remove the default style; use `unassign_style_from_layer` for clarity
+- Delete operations return `{:skipped, name}` on 404 — treat this as idempotent success
 
 ## License
 

@@ -4,7 +4,7 @@ defmodule GeoserverConfig.MixProject do
   def project do
     [
       app: :geoserver_config,
-      version: "0.3.0",
+      version: "0.4.0",
       elixir: "~> 1.17",
       start_permanent: Mix.env() == :prod,
       elixirc_paths: elixirc_paths(Mix.env()),
@@ -24,7 +24,8 @@ defmodule GeoserverConfig.MixProject do
     [
       maintainers: ["Alexander Kmoch", "Zeshan Hyder"],
       licenses: ["MIT"],
-      links: %{"GitHub" => "https://github.com/LandscapeGeoinformatics/geoserver_config_ex"}
+      links: %{"GitHub" => "https://github.com/LandscapeGeoinformatics/geoserver_config_ex"},
+      files: ~w(lib .formatter.exs mix.exs README.md LICENSE usage-rules.md)
     ]
   end
 

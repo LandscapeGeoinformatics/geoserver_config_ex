@@ -3,8 +3,8 @@
 ## Overview
 
 This LiveBook demonstrates how to use the `geoserver_config` library to manage GeoServer
-resources via the REST API: workspaces, datastores, coverage stores, coverages, styles,
-and layer groups.
+resources via the REST API: workspaces, datastores, feature types, coverage stores,
+coverages, styles, and layer groups.
 
 ## Setup
 
@@ -94,6 +94,83 @@ GeoserverConfig.Datastores.update_datastore(conn, "my_workspace", "my_postgis_st
 ```elixir
 # DELETE — remove a datastore (true = also delete dependent feature types)
 GeoserverConfig.Datastores.delete_datastore(conn, "my_workspace", "my_postgis_store", true)
+```
+
+## Feature Types (Vector Layers) CRUD
+
+Feature types represent vector layers published from datastores. These operations manage
+vector data layers for WMS/WFS services.
+
+```elixir
+# GET — list configured feature types in a datastore (default)
+GeoserverConfig.list_featuretypes(conn, "my_workspace", "my_postgis_store")
+```
+
+```elixir
+# GET — list available (unpublished) feature types in a datastore
+GeoserverConfig.list_featuretypes(conn, "my_workspace", "my_postgis_store", :available)
+```
+
+```elixir
+# GET — list all feature types (configured + available)
+GeoserverConfig.list_featuretypes(conn, "my_workspace", "my_postgis_store", :all)
+```
+
+```elixir
+# POST — create a feature type with metadata
+GeoserverConfig.create_featuretype(
+  conn,
+  "my_workspace",
+  "my_postgis_store",
+  "my_layer",
+  %{
+    title: "My Vector Layer",
+    description: "Detailed description",
+    srs: "EPSG:4326",
+    native_crs: "EPSG:4326",
+    native_bbox: %{minx: -180.0, maxx: 180.0, miny: -90.0, maxy: 90.0},
+    latlon_bbox: %{minx: -180.0, maxx: 180.0, miny: -90.0, maxy: 90.0},
+    enabled: true,
+    keywords: ["vector", "roads"],
+    metadata: %{"cacheAgeMax" => 3600, "cachingEnabled" => true}
+  }
+)
+```
+
+```elixir
+# PUT — update a feature type
+GeoserverConfig.update_featuretype(
+  conn,
+  "my_workspace",
+  "my_postgis_store",
+  "my_layer",
+  %{
+    title: "Updated Title",
+    description: "Updated description",
+    srs: "EPSG:3857"
+  }
+)
+
+# Update with bounding box recalculation
+GeoserverConfig.update_featuretype(
+  conn,
+  "my_workspace",
+  "my_postgis_store",
+  "my_layer",
+  %{title: "Updated Title"},
+  "nativebbox,latlonbbox"
+)
+```
+
+```elixir
+# DELETE — remove a feature type (true = also remove dependent resources)
+GeoserverConfig.delete_featuretype(
+  conn,
+  "my_workspace",
+  "my_postgis_store",
+  "my_layer",
+  true
+)
 ```
 
 ## Coverage Store CRUD
@@ -240,7 +317,7 @@ sld_content = """
 
 GeoserverConfig.Styles.create_style(conn, %{
   name: "my_raster_style",
-  sld_content: sld_content,
+  content: sld_content,
   filename: "my_raster_style.sld"
   # workspace: "my_workspace"  # uncomment to scope the style to a workspace
 })
@@ -272,7 +349,7 @@ updated_sld = """
 
 GeoserverConfig.Styles.update_style(conn, %{
   name: "my_raster_style",
-  sld_content: updated_sld,
+  content: updated_sld,
   filename: "my_raster_style.sld"
   # workspace: "my_workspace"
 })
@@ -295,6 +372,23 @@ GeoserverConfig.assign_style_to_layer(
   "my_dem_layer",
   "my_raster_style",
   "my_workspace"
+)
+```
+
+```elixir
+# Unassign (remove) the default style from a layer
+GeoserverConfig.unassign_style_from_layer(
+  conn,
+  "my_workspace",
+  "my_dem_layer"
+)
+
+# Alternatively, pass nil as the style name to unassign
+GeoserverConfig.assign_style_to_layer(
+  conn,
+  "my_workspace",
+  "my_dem_layer",
+  nil
 )
 ```
 
