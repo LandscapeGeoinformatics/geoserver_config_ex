@@ -30,3 +30,4 @@ ref_test/
 
 geoserver_src/
 .elixir_ls/
+.tool-versions

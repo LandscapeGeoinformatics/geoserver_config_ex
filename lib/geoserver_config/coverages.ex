@@ -29,6 +29,9 @@ defmodule GeoserverConfig.Coverages do
           %{"coverages" => %{}} ->
             {:ok, []}
 
+          %{"coverages" => ""} ->
+            {:ok, []}
+
           _ ->
             {:error, :unexpected_format, body}
         end

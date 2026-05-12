@@ -33,6 +33,9 @@ defmodule GeoserverConfig.Coveragestores do
           %{"coverageStores" => %{"coverageStore" => stores}} when is_list(stores) ->
             {:ok, stores}
 
+          %{"coverageStores" => %{"coverageStore" => store}} when is_map(store) ->
+            {:ok, [store]}
+
           %{"coverageStores" => %{}} ->
             {:ok, []}
 

@@ -10,6 +10,12 @@ defmodule GeoserverConfig.Styles do
 
   @doc """
   Lists all global styles available in GeoServer.
+
+  ## Returns
+
+    - `{:ok, [style]}` on success
+    - `{:error, {:http_error, status, body}}` on non-200 response
+    - `{:error, {:request_failed, reason}}` on transport error
   """
   def list_styles(%Connection{} = conn) do
     url = "#{conn.base_url}/styles"
@@ -31,6 +37,12 @@ defmodule GeoserverConfig.Styles do
 
   @doc """
   Lists all styles scoped to a specific workspace.
+
+  ## Returns
+
+    - `{:ok, [style]}` on success
+    - `{:error, {:http_error, status, body}}` on non-200 response
+    - `{:error, {:request_failed, reason}}` on transport error
   """
   def list_styles_workspace_specific(%Connection{} = conn, workspace) do
     url = "#{conn.base_url}/workspaces/#{workspace}/styles"
@@ -373,7 +385,7 @@ defmodule GeoserverConfig.Styles do
   ## Returns
 
     - `{:ok, style_name}` on success
-    - `{:error, {:not_found, style_name}}` if the style does not exist
+    - `{:skipped, style_name}` if the style does not exist (idempotent)
     - `{:error, {:http_error, status, body}}` on other HTTP failure
     - `{:error, {:request_failed, reason}}` on transport error
   """
