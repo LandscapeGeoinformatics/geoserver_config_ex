@@ -162,7 +162,12 @@ defmodule GeoserverConfig.LayerGroupsTest do
       end)
 
       assert {:ok, _} =
-               LayerGroups.add_layer_to_group(test_conn(__MODULE__), "my_group", "ws:first_layer", "ws:style1")
+               LayerGroups.add_layer_to_group(
+                 test_conn(__MODULE__),
+                 "my_group",
+                 "ws:first_layer",
+                 "ws:style1"
+               )
 
       assert_receive {:put_body, body}
       published = get_in(body, ["layerGroup", "publishables", "published"])
@@ -234,7 +239,11 @@ defmodule GeoserverConfig.LayerGroupsTest do
       end)
 
       assert {:ok, _} =
-               LayerGroups.remove_layer_from_group(test_conn(__MODULE__), "my_group", "ws:remove_me")
+               LayerGroups.remove_layer_from_group(
+                 test_conn(__MODULE__),
+                 "my_group",
+                 "ws:remove_me"
+               )
 
       assert_receive {:put_body, body}
       published = get_in(body, ["layerGroup", "publishables", "published"])

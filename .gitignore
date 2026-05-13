@@ -29,5 +29,7 @@ mix.lock
 ref_test/
 
 geoserver_src/
+geoserver_rest_yaml/
+
 .elixir_ls/
 .tool-versions

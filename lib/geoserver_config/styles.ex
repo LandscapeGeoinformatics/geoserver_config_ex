@@ -82,7 +82,8 @@ defmodule GeoserverConfig.Styles do
         ws -> "#{conn.base_url}/workspaces/#{ws}/styles/#{style_name}.sld"
       end
 
-    case Req.get(url,
+    case Req.get(
+           url,
            Connection.req_opts(conn) ++
              [headers: [{"Accept", "application/vnd.ogc.sld+xml, application/xml"}]]
          ) do
@@ -142,7 +143,6 @@ defmodule GeoserverConfig.Styles do
     with {:ok, _} <- validate_create_opts(opts),
          {:ok, content_type} <- detect_content_type(opts),
          {:ok, headers} <- build_headers(content_type) do
-      
       url =
         if opts[:workspace] do
           "#{conn.base_url}/workspaces/#{opts[:workspace]}/styles"
@@ -153,7 +153,8 @@ defmodule GeoserverConfig.Styles do
       query = [name: opts[:name]]
       query = if opts[:filename], do: Keyword.put(query, :filename, opts[:filename]), else: query
 
-      case Req.post(url,
+      case Req.post(
+             url,
              Connection.req_opts(conn) ++
                [
                  headers: headers ++ [{"Accept", "application/json"}],
@@ -189,12 +190,18 @@ defmodule GeoserverConfig.Styles do
   defp detect_content_type(opts) do
     # Explicit format takes precedence
     case opts[:format] do
-      :css -> {:ok, "application/vnd.geoserver.geocss+css"}
-      :sld -> {:ok, "application/vnd.ogc.sld+xml"}
+      :css ->
+        {:ok, "application/vnd.geoserver.geocss+css"}
+
+      :sld ->
+        {:ok, "application/vnd.ogc.sld+xml"}
+
       nil ->
         # Auto-detect from content or filename
         detect_from_content(opts[:content], opts[:filename])
-      _ -> {:error, "Invalid format. Use :sld or :css"}
+
+      _ ->
+        {:error, "Invalid format. Use :sld or :css"}
     end
   end
 
@@ -202,7 +209,9 @@ defmodule GeoserverConfig.Styles do
   defp detect_from_content(content, filename) do
     # Try to detect from filename first
     case detect_from_filename(filename) do
-      {:ok, content_type} -> {:ok, content_type}
+      {:ok, content_type} ->
+        {:ok, content_type}
+
       :unknown ->
         # Try to detect from content
         detect_from_content_string(content)
@@ -211,8 +220,10 @@ defmodule GeoserverConfig.Styles do
 
   @doc false
   defp detect_from_filename(nil), do: :unknown
+
   defp detect_from_filename(filename) when is_binary(filename) do
     filename = String.downcase(filename)
+
     cond do
       String.ends_with?(filename, ".css") -> {:ok, "application/vnd.geoserver.geocss+css"}
       String.ends_with?(filename, ".sld") -> {:ok, "application/vnd.ogc.sld+xml"}
@@ -223,17 +234,27 @@ defmodule GeoserverConfig.Styles do
 
   @doc false
   defp detect_from_content_string(content) when is_binary(content) do
-    content_str = String.trim(String.slice(content, 0..100)) # Take first 100 chars
+    # Take first 100 chars
+    content_str = String.trim(String.slice(content, 0..100))
+
     cond do
-      String.contains?(content_str, "StyledLayerDescriptor") -> {:ok, "application/vnd.ogc.sld+xml"}
-      String.contains?(content_str, "/*") || String.contains?(content_str, "*/") -> {:ok, "application/vnd.geoserver.geocss+css"}
-      String.contains?(content_str, "{") && String.contains?(content_str, "}") -> {:ok, "application/vnd.geoserver.geocss+css"}
-      true -> {:ok, "application/vnd.ogc.sld+xml"} # Default to SLD
+      String.contains?(content_str, "StyledLayerDescriptor") ->
+        {:ok, "application/vnd.ogc.sld+xml"}
+
+      String.contains?(content_str, "/*") || String.contains?(content_str, "*/") ->
+        {:ok, "application/vnd.geoserver.geocss+css"}
+
+      String.contains?(content_str, "{") && String.contains?(content_str, "}") ->
+        {:ok, "application/vnd.geoserver.geocss+css"}
+
+      # Default to SLD
+      true ->
+        {:ok, "application/vnd.ogc.sld+xml"}
     end
   end
 
   @doc false
-  defp build_headers(content_type), do: {:ok, [{"Content-Type", content_type}]} 
+  defp build_headers(content_type), do: {:ok, [{"Content-Type", content_type}]}
 
   @doc """
   Updates an existing style's content.
@@ -259,7 +280,6 @@ defmodule GeoserverConfig.Styles do
     with {:ok, _} <- validate_update_opts(opts),
          {:ok, content_type} <- detect_content_type(opts),
          {:ok, headers} <- build_headers(content_type) do
-      
       url =
         if opts[:workspace] do
           "#{conn.base_url}/workspaces/#{opts[:workspace]}/styles/#{opts[:name]}"
@@ -269,7 +289,8 @@ defmodule GeoserverConfig.Styles do
 
       query = if opts[:filename], do: [filename: opts[:filename]], else: []
 
-      case Req.put(url,
+      case Req.put(
+             url,
              Connection.req_opts(conn) ++
                [
                  headers: headers ++ [{"Accept", "application/json"}],
@@ -318,28 +339,43 @@ defmodule GeoserverConfig.Styles do
     - `{:ok, target_style}` on success
     - `{:error, reason}` on failure
   """
-  def copy_style(%Connection{} = conn, source_style, source_workspace, target_style, target_workspace, opts \\ []) do
+  def copy_style(
+        %Connection{} = conn,
+        source_style,
+        source_workspace,
+        target_style,
+        target_workspace,
+        opts \\ []
+      ) do
     # Get the source style content
     case get_style(conn, source_workspace, source_style) do
       {:ok, content} ->
         # Determine format if not specified
         format = opts[:format] || detect_format_from_content(content)
-        
+
         # Create the target style
         create_opts = %{
           name: target_style,
           content: content,
           format: format
         }
-        
+
         # Add workspace if specified
-        create_opts = if target_workspace, do: Map.put(create_opts, :workspace, target_workspace), else: create_opts
-        
+        create_opts =
+          if target_workspace,
+            do: Map.put(create_opts, :workspace, target_workspace),
+            else: create_opts
+
         create_style(conn, create_opts)
-      
-      {:error, {:not_found, _}} -> {:error, {:not_found, source_style}}
-      {:error, {:http_error, status, body}} -> {:error, {:http_error, status, body}}
-      {:error, {:request_failed, reason}} -> {:error, {:request_failed, reason}}
+
+      {:error, {:not_found, _}} ->
+        {:error, {:not_found, source_style}}
+
+      {:error, {:http_error, status, body}} ->
+        {:error, {:http_error, status, body}}
+
+      {:error, {:request_failed, reason}} ->
+        {:error, {:request_failed, reason}}
     end
   end
 
@@ -365,10 +401,16 @@ defmodule GeoserverConfig.Styles do
       {:ok, _} ->
         # Delete the original style
         delete_opts = []
-        delete_opts = if Keyword.get(opts, :purge), do: Keyword.put(delete_opts, :purge, true), else: delete_opts
+
+        delete_opts =
+          if Keyword.get(opts, :purge),
+            do: Keyword.put(delete_opts, :purge, true),
+            else: delete_opts
+
         delete_style(conn, style_name, source_workspace, delete_opts)
-      
-      error -> error
+
+      error ->
+        error
     end
   end
 
@@ -399,10 +441,15 @@ defmodule GeoserverConfig.Styles do
 
     query =
       []
-      |> then(fn q -> if Keyword.get(opts, :purge), do: Keyword.put(q, :purge, "true"), else: q end)
-      |> then(fn q -> if Keyword.get(opts, :recurse), do: Keyword.put(q, :recurse, "true"), else: q end)
+      |> then(fn q ->
+        if Keyword.get(opts, :purge), do: Keyword.put(q, :purge, "true"), else: q
+      end)
+      |> then(fn q ->
+        if Keyword.get(opts, :recurse), do: Keyword.put(q, :recurse, "true"), else: q
+      end)
 
-    case Req.delete(url,
+    case Req.delete(
+           url,
            Connection.req_opts(conn) ++
              [headers: [{"Accept", "application/json"}], params: query]
          ) do
@@ -423,11 +470,13 @@ defmodule GeoserverConfig.Styles do
   @doc false
   defp detect_format_from_content(content) when is_binary(content) do
     content_str = String.trim(String.slice(content, 0..100))
+
     cond do
       String.contains?(content_str, "StyledLayerDescriptor") -> :sld
       String.contains?(content_str, "/*") || String.contains?(content_str, "*/") -> :css
       String.contains?(content_str, "{") && String.contains?(content_str, "}") -> :css
-      true -> :sld # Default to SLD
+      # Default to SLD
+      true -> :sld
     end
   end
 end

@@ -164,7 +164,12 @@ defmodule GeoserverConfig.DatastoresTest do
       end)
 
       assert {:ok, "my_store"} =
-               Datastores.delete_datastore(test_conn(__MODULE__), "my_workspace", "my_store", true)
+               Datastores.delete_datastore(
+                 test_conn(__MODULE__),
+                 "my_workspace",
+                 "my_store",
+                 true
+               )
     end
 
     test "returns {:ok, name} without recurse flag (default false)" do

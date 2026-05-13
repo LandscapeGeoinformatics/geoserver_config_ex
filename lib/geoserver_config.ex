@@ -27,6 +27,7 @@ defmodule GeoserverConfig do
 
   # Workspaces
   defdelegate fetch_workspaces(conn), to: Workspaces
+  defdelegate get_workspace(conn, workspace_name), to: Workspaces
   defdelegate create_workspace(conn, workspace_name), to: Workspaces
   defdelegate delete_workspace(conn, workspace_name), to: Workspaces
   defdelegate update_workspace(conn, old_workspace_name, new_workspace_name), to: Workspaces
@@ -40,6 +41,10 @@ defmodule GeoserverConfig do
     FeatureTypes.list_featuretypes(conn, workspace, datastore, :configured)
   end
 
+  def get_featuretype(conn, workspace, datastore, featuretype_name, opts \\ []) do
+    FeatureTypes.get_featuretype(conn, workspace, datastore, featuretype_name, opts)
+  end
+
   def create_featuretype(conn, workspace, datastore, featuretype_name, params) do
     FeatureTypes.create_featuretype(conn, workspace, datastore, featuretype_name, params)
   end
@@ -49,7 +54,14 @@ defmodule GeoserverConfig do
   end
 
   def update_featuretype(conn, workspace, datastore, featuretype_name, params, recalculate) do
-    FeatureTypes.update_featuretype(conn, workspace, datastore, featuretype_name, params, recalculate)
+    FeatureTypes.update_featuretype(
+      conn,
+      workspace,
+      datastore,
+      featuretype_name,
+      params,
+      recalculate
+    )
   end
 
   def update_featuretype(conn, workspace, datastore, featuretype_name, params) do
@@ -68,29 +80,107 @@ defmodule GeoserverConfig do
     FeatureTypes.delete_featuretype(conn, workspace, datastore, featuretype_name, false)
   end
 
+  def reset_featuretype(conn, workspace, datastore, featuretype_name) do
+    FeatureTypes.reset_featuretype(conn, workspace, datastore, featuretype_name)
+  end
+
+  def list_workspace_featuretypes(conn, workspace, list \\ :configured) do
+    FeatureTypes.list_workspace_featuretypes(conn, workspace, list)
+  end
+
+  def get_workspace_featuretype(conn, workspace, featuretype_name, opts \\ []) do
+    FeatureTypes.get_workspace_featuretype(conn, workspace, featuretype_name, opts)
+  end
+
+  def create_workspace_featuretype(conn, workspace, featuretype_name, params \\ %{}) do
+    FeatureTypes.create_workspace_featuretype(conn, workspace, featuretype_name, params)
+  end
+
+  def update_workspace_featuretype(
+        conn,
+        workspace,
+        featuretype_name,
+        params \\ %{},
+        recalculate \\ nil
+      ) do
+    FeatureTypes.update_workspace_featuretype(
+      conn,
+      workspace,
+      featuretype_name,
+      params,
+      recalculate
+    )
+  end
+
+  def delete_workspace_featuretype(conn, workspace, featuretype_name, recurse \\ false) do
+    FeatureTypes.delete_workspace_featuretype(conn, workspace, featuretype_name, recurse)
+  end
+
   # Datastores
   defdelegate list_datastores(conn, workspace), to: Datastores
+
+  def get_datastore(conn, workspace, datastore_name, opts \\ []) do
+    Datastores.get_datastore(conn, workspace, datastore_name, opts)
+  end
+
   defdelegate create_datastore(conn, workspace, name, type, connection_params), to: Datastores
-  defdelegate update_datastore(conn, workspace, datastore_name, datastore_type, connection_params), to: Datastores
+
+  defdelegate update_datastore(
+                conn,
+                workspace,
+                datastore_name,
+                datastore_type,
+                connection_params
+              ),
+              to: Datastores
 
   def delete_datastore(conn, workspace, datastore_name, recurse \\ false) do
     Datastores.delete_datastore(conn, workspace, datastore_name, recurse)
   end
 
+  def reset_datastore(conn, workspace, datastore_name) do
+    Datastores.reset_datastore(conn, workspace, datastore_name)
+  end
 
+  def upload_datastore(conn, workspace, store_name, method, format, body, opts \\ []) do
+    Datastores.upload_datastore(conn, workspace, store_name, method, format, body, opts)
+  end
 
   # Coverage stores
   defdelegate list_coveragestores(conn, workspace), to: Coveragestores
+  defdelegate get_coveragestore(conn, workspace, store_name), to: Coveragestores
   defdelegate delete_coveragestore(conn, workspace, name), to: Coveragestores
-  defdelegate update_coveragestore(conn, workspace, store_name, updated_params), to: Coveragestores
 
-  def create_coveragestore(conn, workspace, store_name, geotiff_path, description \\ "", opts \\ %{}) do
-    Coveragestores.create_coveragestore(conn, workspace, store_name, geotiff_path, description, opts)
+  defdelegate update_coveragestore(conn, workspace, store_name, updated_params),
+    to: Coveragestores
+
+  def create_coveragestore(
+        conn,
+        workspace,
+        store_name,
+        geotiff_path,
+        description \\ "",
+        opts \\ %{}
+      ) do
+    Coveragestores.create_coveragestore(
+      conn,
+      workspace,
+      store_name,
+      geotiff_path,
+      description,
+      opts
+    )
   end
 
   # Coverages
   defdelegate list_coverages(conn, workspace, coverage_store), to: Coverages
-  defdelegate create_coverage(conn, workspace, coverage_store, coverage_name, params, file_path), to: Coverages
+  defdelegate get_coverage(conn, workspace, coverage_store, coverage_name), to: Coverages
+
+  defdelegate create_coverage(conn, workspace, coverage_store, coverage_name, params, file_path),
+    to: Coverages
+
+  defdelegate update_coverage(conn, workspace, coverage_store, coverage_name, params),
+    to: Coverages
 
   def delete_coverage(conn, workspace, coverage_store, coverage_name, recurse \\ false) do
     Coverages.delete_coverage(conn, workspace, coverage_store, coverage_name, recurse)
@@ -103,7 +193,17 @@ defmodule GeoserverConfig do
   defdelegate write_sld_file(style_file_path, sld_content), to: Styles
   defdelegate create_style(conn, opts), to: Styles
   defdelegate update_style(conn, opts), to: Styles
-  defdelegate copy_style(conn, source_style, source_workspace, target_style, target_workspace, opts), to: Styles
+
+  defdelegate copy_style(
+                conn,
+                source_style,
+                source_workspace,
+                target_style,
+                target_workspace,
+                opts
+              ),
+              to: Styles
+
   defdelegate move_style(conn, style_name, source_workspace, target_workspace, opts), to: Styles
 
   def delete_style(%Connection{} = conn, style_name, workspace \\ nil, opts \\ []) do
@@ -111,14 +211,27 @@ defmodule GeoserverConfig do
   end
 
   # Style assignment
-  def assign_style_to_layer(%Connection{} = conn, workspace, layer_name, style_name, style_workspace \\ nil) do
-    StyleAssignToLayer.assign_style_to_layer(conn, workspace, layer_name, style_name, style_workspace)
+  def assign_style_to_layer(
+        %Connection{} = conn,
+        workspace,
+        layer_name,
+        style_name,
+        style_workspace \\ nil
+      ) do
+    StyleAssignToLayer.assign_style_to_layer(
+      conn,
+      workspace,
+      layer_name,
+      style_name,
+      style_workspace
+    )
   end
 
   defdelegate unassign_style_from_layer(conn, workspace, layer_name), to: StyleAssignToLayer
 
   # Layer groups
   defdelegate list_layer_groups(conn), to: LayerGroups
+  defdelegate get_layer_group(conn, group_name), to: LayerGroups
   defdelegate create_layer_group(conn, body), to: LayerGroups
   defdelegate update_layer_group(conn, name, body), to: LayerGroups
   defdelegate delete_layer_group(conn, name), to: LayerGroups

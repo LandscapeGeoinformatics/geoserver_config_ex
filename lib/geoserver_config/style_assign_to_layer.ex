@@ -28,7 +28,13 @@ defmodule GeoserverConfig.StyleAssignToLayer do
     - `{:ok, message}` if the style was successfully assigned
     - `{:error, reason}` if the style does not exist or the assignment failed
   """
-  def assign_style_to_layer(%Connection{} = conn, workspace, layer_name, style_name, style_workspace \\ nil) do
+  def assign_style_to_layer(
+        %Connection{} = conn,
+        workspace,
+        layer_name,
+        style_name,
+        style_workspace \\ nil
+      ) do
     if is_nil(style_name) or style_name == "" do
       unassign_style(conn, workspace, layer_name)
     else
@@ -114,7 +120,8 @@ defmodule GeoserverConfig.StyleAssignToLayer do
 
     body = Jason.encode!(%{"layer" => %{"defaultStyle" => style_ref}})
 
-    case Req.put(url,
+    case Req.put(
+           url,
            Connection.req_opts(conn) ++
              [headers: [{"Content-Type", "application/json"}], body: body]
          ) do
@@ -137,7 +144,8 @@ defmodule GeoserverConfig.StyleAssignToLayer do
 
     body = Jason.encode!(%{"layer" => %{"defaultStyle" => nil}})
 
-    case Req.put(url,
+    case Req.put(
+           url,
            Connection.req_opts(conn) ++
              [headers: [{"Content-Type", "application/json"}], body: body]
          ) do

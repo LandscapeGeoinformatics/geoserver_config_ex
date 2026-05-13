@@ -45,6 +45,31 @@ defmodule GeoserverConfig.Coverages do
   end
 
   @doc """
+  Fetches a single coverage by name from the given workspace and coverage store.
+
+  ## Returns
+
+    - `{:ok, coverage}` on success (a map with coverage details)
+    - `{:error, {:http_error, status, body}}` on non-200 response
+    - `{:error, {:request_failed, reason}}` on transport error
+  """
+  def get_coverage(%Connection{} = conn, workspace, coverage_store, coverage_name) do
+    url =
+      "#{conn.base_url}/workspaces/#{workspace}/coveragestores/#{coverage_store}/coverages/#{coverage_name}"
+
+    case Req.get(url, Connection.req_opts(conn) ++ [headers: [{"Accept", "application/json"}]]) do
+      {:ok, %{status: 200, body: %{"coverage" => coverage}}} ->
+        {:ok, coverage}
+
+      {:ok, %{status: status, body: body}} ->
+        {:error, {:http_error, status, body}}
+
+      {:error, reason} ->
+        {:error, {:request_failed, reason}}
+    end
+  end
+
+  @doc """
   Creates a new coverage (raster layer) in the specified coverage store.
 
   ## Parameters
@@ -63,11 +88,19 @@ defmodule GeoserverConfig.Coverages do
     - `{:error, {:http_error, status, body}}` on failure
     - `{:error, {:request_failed, reason}}` on transport error
   """
-  def create_coverage(%Connection{} = conn, workspace, coverage_store, coverage_name, params, file_path) do
+  def create_coverage(
+        %Connection{} = conn,
+        workspace,
+        coverage_store,
+        coverage_name,
+        params,
+        file_path
+      ) do
     payload = build_payload(workspace, coverage_store, coverage_name, params, file_path)
     url = "#{conn.base_url}/workspaces/#{workspace}/coveragestores/#{coverage_store}/coverages"
 
-    case Req.post(url,
+    case Req.post(
+           url,
            Connection.req_opts(conn) ++
              [
                json: payload,
@@ -98,7 +131,8 @@ defmodule GeoserverConfig.Coverages do
         "enabled" => Map.get(params, :enabled, true),
         "srs" => params.srs,
         "nativeCRS" => build_crs(Map.get(params, :native_crs, params.srs)),
-        "nativeBoundingBox" => build_bbox(params.native_bbox, Map.get(params, :native_crs, params.srs)),
+        "nativeBoundingBox" =>
+          build_bbox(params.native_bbox, Map.get(params, :native_crs, params.srs)),
         "latLonBoundingBox" => build_bbox(params.latlon_bbox, "EPSG:4326"),
         "grid" => build_grid(params.grid, params.srs),
         "metadata" => build_metadata(Map.get(params, :metadata, %{})),
@@ -160,6 +194,93 @@ defmodule GeoserverConfig.Coverages do
   end
 
   @doc """
+  Updates an existing coverage (raster layer) in the specified coverage store.
+
+  ## Parameters
+
+    - `conn` — a `GeoserverConfig.Connection`
+    - `workspace` — the workspace name
+    - `coverage_store` — the coverage store name
+    - `coverage_name` — name of the coverage to update
+    - `params` — map with fields to update: `:title`, `:description`, `:abstract`,
+      `:enabled`, `:srs`, `:native_bbox`, `:latlon_bbox`, `:metadata`, `:keywords`
+
+  ## Returns
+
+    - `{:ok, coverage_name}` on success
+    - `{:error, {:http_error, status, body}}` on failure
+    - `{:error, {:request_failed, reason}}` on transport error
+  """
+  def update_coverage(%Connection{} = conn, workspace, coverage_store, coverage_name, params) do
+    url =
+      "#{conn.base_url}/workspaces/#{workspace}/coveragestores/#{coverage_store}/coverages/#{coverage_name}"
+
+    body = %{"coverage" => build_update_body(params)}
+
+    case Req.put(
+           url,
+           Connection.req_opts(conn) ++
+             [json: body, headers: [{"Content-Type", "application/json"}]]
+         ) do
+      {:ok, response} when response.status in 200..299 ->
+        {:ok, coverage_name}
+
+      {:ok, %{status: status, body: body}} ->
+        {:error, {:http_error, status, body}}
+
+      {:error, error} ->
+        {:error, {:request_failed, error}}
+    end
+  end
+
+  defp build_update_body(params) do
+    body = %{}
+
+    body = if params[:title], do: Map.put(body, "title", params[:title]), else: body
+
+    body =
+      if params[:description], do: Map.put(body, "description", params[:description]), else: body
+
+    body = if params[:abstract], do: Map.put(body, "abstract", params[:abstract]), else: body
+    body = if params[:enabled] != nil, do: Map.put(body, "enabled", params[:enabled]), else: body
+    body = if params[:srs], do: Map.put(body, "srs", params[:srs]), else: body
+
+    body =
+      if native_bbox = params[:native_bbox] do
+        Map.put(
+          body,
+          "nativeBoundingBox",
+          build_bbox(native_bbox, params[:native_crs] || params[:srs] || "EPSG:4326")
+        )
+      else
+        body
+      end
+
+    body =
+      if latlon_bbox = params[:latlon_bbox] do
+        Map.put(body, "latLonBoundingBox", build_bbox(latlon_bbox, "EPSG:4326"))
+      else
+        body
+      end
+
+    body =
+      if metadata = params[:metadata] do
+        Map.put(body, "metadata", build_metadata(metadata))
+      else
+        body
+      end
+
+    body =
+      if keywords = params[:keywords] do
+        Map.put(body, "keywords", %{"string" => keywords})
+      else
+        body
+      end
+
+    body
+  end
+
+  @doc """
   Deletes a coverage layer from a workspace and coverage store.
 
   ## Parameters
@@ -177,11 +298,20 @@ defmodule GeoserverConfig.Coverages do
     - `{:error, {:http_error, status, body}}` on other HTTP failure
     - `{:error, {:request_failed, reason}}` on transport error
   """
-  def delete_coverage(%Connection{} = conn, workspace, coverage_store, coverage_name, recurse \\ false) do
-    url = "#{conn.base_url}/workspaces/#{workspace}/coveragestores/#{coverage_store}/coverages/#{coverage_name}"
+  def delete_coverage(
+        %Connection{} = conn,
+        workspace,
+        coverage_store,
+        coverage_name,
+        recurse \\ false
+      ) do
+    url =
+      "#{conn.base_url}/workspaces/#{workspace}/coveragestores/#{coverage_store}/coverages/#{coverage_name}"
+
     query_params = if recurse, do: [{"recurse", "true"}], else: []
 
-    case Req.delete(url,
+    case Req.delete(
+           url,
            Connection.req_opts(conn) ++
              [headers: [{"Accept", "application/json"}], params: query_params]
          ) do

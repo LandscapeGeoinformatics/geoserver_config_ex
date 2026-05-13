@@ -151,8 +151,10 @@ defmodule GeoserverConfig.LayerGroups do
       updated_payload =
         if style_name do
           new_style = %{"name" => style_name}
-          put_in(updated_payload, ["layerGroup", "styles"],
-            %{"style" => existing_styles ++ [new_style]})
+
+          put_in(updated_payload, ["layerGroup", "styles"], %{
+            "style" => existing_styles ++ [new_style]
+          })
         else
           updated_payload
         end
@@ -193,10 +195,10 @@ defmodule GeoserverConfig.LayerGroups do
           }
 
           updated_payload =
-            if length(existing_layers) == length(existing_styles) and index < length(existing_styles) do
+            if length(existing_layers) == length(existing_styles) and
+                 index < length(existing_styles) do
               updated_styles = List.delete_at(existing_styles, index)
-              put_in(updated_payload, ["layerGroup", "styles"],
-                %{"style" => updated_styles})
+              put_in(updated_payload, ["layerGroup", "styles"], %{"style" => updated_styles})
             else
               updated_payload
             end
@@ -204,6 +206,19 @@ defmodule GeoserverConfig.LayerGroups do
           update_layer_group(conn, group_name, updated_payload)
       end
     end
+  end
+
+  @doc """
+  Fetches a single layer group by name from GeoServer.
+
+  ## Returns
+
+    - `{:ok, group}` on success (a map with the layer group details as JSON)
+    - `{:error, {:http_error, status, body}}` on non-200 response
+    - `{:error, {:request_failed, reason}}` on transport error
+  """
+  def get_layer_group(%Connection{} = conn, group_name) do
+    fetch_group(conn, group_name)
   end
 
   defp fetch_group(%Connection{} = conn, group_name) do
@@ -227,9 +242,13 @@ defmodule GeoserverConfig.LayerGroups do
   defp normalize_list(item), do: [item]
 
   defp do_post(%Connection{} = conn, url, body) when is_binary(body) do
-    case Req.post(url,
+    case Req.post(
+           url,
            Connection.req_opts(conn) ++
-             [headers: [{"Content-Type", "application/xml"}, {"Accept", "application/json"}], body: body]
+             [
+               headers: [{"Content-Type", "application/xml"}, {"Accept", "application/json"}],
+               body: body
+             ]
          ) do
       {:ok, %Req.Response{status: status, body: resp_body}} when status in 200..299 ->
         {:ok, resp_body}
@@ -243,9 +262,13 @@ defmodule GeoserverConfig.LayerGroups do
   end
 
   defp do_post(%Connection{} = conn, url, body) when is_map(body) do
-    case Req.post(url,
+    case Req.post(
+           url,
            Connection.req_opts(conn) ++
-             [headers: [{"Content-Type", "application/json"}, {"Accept", "application/json"}], json: body]
+             [
+               headers: [{"Content-Type", "application/json"}, {"Accept", "application/json"}],
+               json: body
+             ]
          ) do
       {:ok, %Req.Response{status: status, body: resp_body}} when status in 200..299 ->
         {:ok, resp_body}
@@ -259,9 +282,13 @@ defmodule GeoserverConfig.LayerGroups do
   end
 
   defp do_put(%Connection{} = conn, url, body) when is_binary(body) do
-    case Req.put(url,
+    case Req.put(
+           url,
            Connection.req_opts(conn) ++
-             [headers: [{"Content-Type", "application/xml"}, {"Accept", "application/json"}], body: body]
+             [
+               headers: [{"Content-Type", "application/xml"}, {"Accept", "application/json"}],
+               body: body
+             ]
          ) do
       {:ok, %Req.Response{status: status, body: resp_body}} when status in 200..299 ->
         {:ok, resp_body}
@@ -275,9 +302,13 @@ defmodule GeoserverConfig.LayerGroups do
   end
 
   defp do_put(%Connection{} = conn, url, body) when is_map(body) do
-    case Req.put(url,
+    case Req.put(
+           url,
            Connection.req_opts(conn) ++
-             [headers: [{"Content-Type", "application/json"}, {"Accept", "application/json"}], json: body]
+             [
+               headers: [{"Content-Type", "application/json"}, {"Accept", "application/json"}],
+               json: body
+             ]
          ) do
       {:ok, %Req.Response{status: status, body: resp_body}} when status in 200..299 ->
         {:ok, resp_body}

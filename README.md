@@ -75,6 +75,8 @@ conn = GeoserverConfig.Connection.from_env(prefix: "STAGING_GEOSERVER")
 ```elixir
 {:ok, workspaces} = GeoserverConfig.Workspaces.fetch_workspaces(conn)
 
+{:ok, workspace} = GeoserverConfig.Workspaces.get_workspace(conn, "ws_name")
+
 {:ok, "new_ws"} = GeoserverConfig.Workspaces.create_workspace(conn, "new_ws")
 
 {:ok, "new_name"} = GeoserverConfig.Workspaces.update_workspace(conn, "old_name", "new_name")
@@ -88,6 +90,11 @@ conn = GeoserverConfig.Connection.from_env(prefix: "STAGING_GEOSERVER")
 
 ```elixir
 {:ok, stores} = GeoserverConfig.Datastores.list_datastores(conn, "workspace_name")
+
+{:ok, store} = GeoserverConfig.Datastores.get_datastore(conn, "workspace_name", "my_store")
+
+# With quiet-on-not-found (avoids server-side logging on 404)
+{:ok, store} = GeoserverConfig.Datastores.get_datastore(conn, "workspace_name", "my_store", quiet_on_not_found: true)
 ```
 
 **Shapefile (with enhanced options):**
@@ -193,13 +200,63 @@ conn = GeoserverConfig.Connection.from_env(prefix: "STAGING_GEOSERVER")
 {:ok, "my_store"} = GeoserverConfig.Datastores.delete_datastore(conn, "workspace_name", "my_store", true)
 ```
 
+**File upload** (create or update a datastore by uploading spatial data):
+
+```elixir
+# Upload a shapefile from a local file path
+{:ok, "my_store"} = GeoserverConfig.Datastores.upload_datastore(
+  conn,
+  "workspace_name",
+  "my_store",
+  :file,
+  "shp",
+  File.read!("/path/to/shapefile.zip"),
+  content_type: "application/zip"
+)
+
+# Upload from a remote URL
+{:ok, "my_store"} = GeoserverConfig.Datastores.upload_datastore(
+  conn,
+  "workspace_name",
+  "my_store",
+  :url,
+  "shp",
+  "https://example.com/data.zip"
+)
+
+# Upload using an existing server-side file
+{:ok, "my_store"} = GeoserverConfig.Datastores.upload_datastore(
+  conn,
+  "workspace_name",
+  "my_store",
+  :external,
+  "shp",
+  "file:///data/shapes.zip",
+  configure: "all", update: "overwrite", charset: "ISO-8859-1"
+)
+```
+
+**Reset** (drop cached structures, force reconnect):
+
+```elixir
+{:ok, "my_store"} = GeoserverConfig.Datastores.reset_datastore(conn, "workspace_name", "my_store")
+```
+
 ## Feature Types (Vector Layers)
 
 Feature types represent vector layers published from datastores. These operations allow you to manage vector data layers for WMS/WFS services.
 
+### Datastore-scoped operations
+
 ```elixir
 # List all configured feature types in a datastore
 {:ok, feature_types} = GeoserverConfig.list_featuretypes(conn, "workspace_name", "datastore_name")
+
+# Get a single feature type
+{:ok, feature_type} = GeoserverConfig.get_featuretype(conn, "workspace_name", "datastore_name", "my_layer")
+
+# With quiet-on-not-found
+{:ok, feature_type} = GeoserverConfig.get_featuretype(conn, "workspace_name", "datastore_name", "my_layer", quiet_on_not_found: true)
 
 # List available (unpublished) feature types
 {:ok, available_types} = GeoserverConfig.list_featuretypes(conn, "workspace_name", "datastore_name", :available)
@@ -226,7 +283,12 @@ Feature types represent vector layers published from datastores. These operation
     latlon_bbox: %{minx: -180.0, maxx: 180.0, miny: -90.0, maxy: 90.0},
     enabled: true,
     keywords: ["vector", "roads", "transportation"],
-    metadata: %{"cacheAgeMax" => 3600, "cachingEnabled" => true}
+    metadata: %{"cacheAgeMax" => 3600, "cachingEnabled" => true},
+    projection_policy: "REPROJECT_TO_DECLARED",
+    max_features: 1000,
+    num_decimals: 6,
+    cql_filter: "INCLUDE",
+    overriding_service_srs: true
   }
 )
 ```
@@ -270,10 +332,51 @@ Feature types represent vector layers published from datastores. These operation
 )
 ```
 
+**Reset** (drop cached feature type structures):
+
+```elixir
+{:ok, "my_layer"} = GeoserverConfig.reset_featuretype(conn, "workspace_name", "datastore_name", "my_layer")
+```
+
+### Workspace-level operations
+
+These operate across all datastores in a workspace, matching GeoServer's alternate REST paths.
+
+```elixir
+# List all feature types across all datastores
+{:ok, types} = GeoserverConfig.list_workspace_featuretypes(conn, "workspace_name")
+{:ok, available} = GeoserverConfig.list_workspace_featuretypes(conn, "workspace_name", :available)
+
+# Get a single feature type
+{:ok, ft} = GeoserverConfig.get_workspace_featuretype(conn, "workspace_name", "my_layer")
+
+# Create (must reference a store)
+{:ok, "my_layer"} = GeoserverConfig.create_workspace_featuretype(
+  conn,
+  "workspace_name",
+  "my_layer",
+  %{title: "My Layer", srs: "EPSG:4326", store: %{name: "my_store"}}
+)
+
+# Update (with bounding box recalculation)
+{:ok, "my_layer"} = GeoserverConfig.update_workspace_featuretype(
+  conn,
+  "workspace_name",
+  "my_layer",
+  %{title: "New Title"},
+  "nativebbox,latlonbbox"
+)
+
+# Delete
+{:ok, "my_layer"} = GeoserverConfig.delete_workspace_featuretype(conn, "workspace_name", "my_layer", true)
+```
+
 ## Coverage Store Operations
 
 ```elixir
 {:ok, stores} = GeoserverConfig.Coveragestores.list_coveragestores(conn, "workspace_name")
+
+{:ok, store} = GeoserverConfig.Coveragestores.get_coveragestore(conn, "workspace_name", "dem_store")
 ```
 
 **Local GeoTIFF:**
@@ -338,6 +441,8 @@ Feature types represent vector layers published from datastores. These operation
 
 ```elixir
 {:ok, coverages} = GeoserverConfig.Coverages.list_coverages(conn, "workspace_name", "dem_store")
+
+{:ok, coverage} = GeoserverConfig.Coverages.get_coverage(conn, "workspace_name", "dem_store", "dem_layer")
 ```
 
 **Create:**
@@ -366,6 +471,18 @@ Feature types represent vector layers published from datastores. These operation
     }
   },
   "file:///path/to/geotiff.tif"
+)
+```
+
+**Update:**
+
+```elixir
+{:ok, "dem_layer"} = GeoserverConfig.Coverages.update_coverage(
+  conn,
+  "workspace_name",
+  "dem_store",
+  "dem_layer",
+  %{title: "Updated DEM", description: "Updated description"}
 )
 ```
 
@@ -548,6 +665,8 @@ Verifies the style exists before assigning it:
 
 ```elixir
 {:ok, groups} = GeoserverConfig.LayerGroups.list_layer_groups(conn)
+
+{:ok, group} = GeoserverConfig.LayerGroups.get_layer_group(conn, "my-group")
 
 # Create from XML or a map
 {:ok, _} = GeoserverConfig.LayerGroups.create_layer_group(conn, xml_string)

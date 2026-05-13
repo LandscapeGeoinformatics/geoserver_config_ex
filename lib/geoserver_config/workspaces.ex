@@ -45,6 +45,30 @@ defmodule GeoserverConfig.Workspaces do
   end
 
   @doc """
+  Fetches a single workspace by name from GeoServer.
+
+  ## Returns
+
+    - `{:ok, workspace}` on success (a map with `"name"` and `"href"` keys)
+    - `{:error, {:http_error, status, body}}` on non-200 response
+    - `{:error, {:request_failed, message}}` on transport error
+  """
+  def get_workspace(%Connection{} = conn, workspace_name) do
+    url = "#{conn.base_url}/workspaces/#{workspace_name}"
+
+    case Req.get(url, Connection.req_opts(conn) ++ [headers: [{"Accept", "application/json"}]]) do
+      {:ok, %Req.Response{status: 200, body: %{"workspace" => workspace}}} ->
+        {:ok, workspace}
+
+      {:ok, %Req.Response{status: status, body: body}} ->
+        {:error, {:http_error, status, body}}
+
+      {:error, exception} ->
+        {:error, {:request_failed, Exception.message(exception)}}
+    end
+  end
+
+  @doc """
   Creates a new workspace in GeoServer.
 
   ## Returns
@@ -56,7 +80,8 @@ defmodule GeoserverConfig.Workspaces do
   def create_workspace(%Connection{} = conn, workspace_name) do
     url = "#{conn.base_url}/workspaces"
 
-    case Req.post(url,
+    case Req.post(
+           url,
            Connection.req_opts(conn) ++
              [
                headers: [{"Content-Type", "application/json"}, {"Accept", "application/json"}],
@@ -110,7 +135,8 @@ defmodule GeoserverConfig.Workspaces do
   def update_workspace(%Connection{} = conn, old_workspace_name, new_workspace_name) do
     url = "#{conn.base_url}/workspaces/#{old_workspace_name}"
 
-    case Req.put(url,
+    case Req.put(
+           url,
            Connection.req_opts(conn) ++
              [
                headers: [{"Content-Type", "application/json"}, {"Accept", "application/json"}],

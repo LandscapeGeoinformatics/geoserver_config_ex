@@ -52,6 +52,30 @@ defmodule GeoserverConfig.Coveragestores do
   end
 
   @doc """
+  Fetches a single coverage store by name from the given workspace.
+
+  ## Returns
+
+    - `{:ok, store}` on success (a map with coverage store details)
+    - `{:error, {:http_error, status, body}}` on non-200 response
+    - `{:error, {:request_failed, reason}}` on transport error
+  """
+  def get_coveragestore(%Connection{} = conn, workspace, store_name) do
+    url = "#{conn.base_url}/workspaces/#{workspace}/coveragestores/#{store_name}"
+
+    case Req.get(url, Connection.req_opts(conn) ++ [headers: [{"Accept", "application/json"}]]) do
+      {:ok, %{status: 200, body: %{"coverageStore" => store}}} ->
+        {:ok, store}
+
+      {:ok, %{status: status, body: body}} ->
+        {:error, {:http_error, status, body}}
+
+      {:error, reason} ->
+        {:error, {:request_failed, reason}}
+    end
+  end
+
+  @doc """
   Creates a new coverage store for a GeoTIFF or COG raster file.
 
   ## Parameters
@@ -69,7 +93,14 @@ defmodule GeoserverConfig.Coveragestores do
     - `{:ok, store_name}` on success
     - `{:error, reason}` on failure
   """
-  def create_coveragestore(%Connection{} = conn, workspace, store_name, geotiff_path, description \\ "", opts \\ %{}) do
+  def create_coveragestore(
+        %Connection{} = conn,
+        workspace,
+        store_name,
+        geotiff_path,
+        description \\ "",
+        opts \\ %{}
+      ) do
     url = "#{conn.base_url}/workspaces/#{workspace}/coveragestores"
 
     store_body =
@@ -88,7 +119,8 @@ defmodule GeoserverConfig.Coveragestores do
         Map.merge(cs, Map.take(opts, [:connectionParameters, :metadata, :disableOnConnFailure]))
       end)
 
-    case Req.post(url,
+    case Req.post(
+           url,
            Connection.req_opts(conn) ++
              [
                json: store_body,
@@ -137,7 +169,8 @@ defmodule GeoserverConfig.Coveragestores do
       }
     }
 
-    case Req.put(url,
+    case Req.put(
+           url,
            Connection.req_opts(conn) ++
              [json: body, headers: [{"Content-Type", "application/json"}]]
          ) do

@@ -18,7 +18,9 @@ defmodule GeoserverConfig.FeatureTypesTest do
         })
       end)
 
-      assert {:ok, types} = FeatureTypes.list_featuretypes(test_conn(__MODULE__), "my_workspace", "my_store")
+      assert {:ok, types} =
+               FeatureTypes.list_featuretypes(test_conn(__MODULE__), "my_workspace", "my_store")
+
       assert length(types) == 2
     end
 
@@ -26,12 +28,17 @@ defmodule GeoserverConfig.FeatureTypesTest do
       Req.Test.stub(__MODULE__, fn conn ->
         Req.Test.json(conn, %{
           "featureTypes" => %{
-            "featureType" => %{"name" => "single_layer", "href" => "http://example.com/single_layer"}
+            "featureType" => %{
+              "name" => "single_layer",
+              "href" => "http://example.com/single_layer"
+            }
           }
         })
       end)
 
-      assert {:ok, [type]} = FeatureTypes.list_featuretypes(test_conn(__MODULE__), "my_workspace", "my_store")
+      assert {:ok, [type]} =
+               FeatureTypes.list_featuretypes(test_conn(__MODULE__), "my_workspace", "my_store")
+
       assert type["name"] == "single_layer"
     end
 
@@ -40,7 +47,8 @@ defmodule GeoserverConfig.FeatureTypesTest do
         Req.Test.json(conn, %{"featureTypes" => %{}})
       end)
 
-      assert {:ok, []} = FeatureTypes.list_featuretypes(test_conn(__MODULE__), "my_workspace", "my_store")
+      assert {:ok, []} =
+               FeatureTypes.list_featuretypes(test_conn(__MODULE__), "my_workspace", "my_store")
     end
 
     test "supports different list parameter values" do
@@ -50,7 +58,13 @@ defmodule GeoserverConfig.FeatureTypesTest do
         Req.Test.json(conn, %{"featureTypes" => %{}})
       end)
 
-      assert {:ok, []} = FeatureTypes.list_featuretypes(test_conn(__MODULE__), "my_workspace", "my_store", :available)
+      assert {:ok, []} =
+               FeatureTypes.list_featuretypes(
+                 test_conn(__MODULE__),
+                 "my_workspace",
+                 "my_store",
+                 :available
+               )
 
       # Test :all
       Req.Test.stub(__MODULE__, fn conn ->
@@ -58,7 +72,13 @@ defmodule GeoserverConfig.FeatureTypesTest do
         Req.Test.json(conn, %{"featureTypes" => %{}})
       end)
 
-      assert {:ok, []} = FeatureTypes.list_featuretypes(test_conn(__MODULE__), "my_workspace", "my_store", :all)
+      assert {:ok, []} =
+               FeatureTypes.list_featuretypes(
+                 test_conn(__MODULE__),
+                 "my_workspace",
+                 "my_store",
+                 :all
+               )
     end
 
     test "returns {:error, {:http_error, status, body}} on non-200" do
@@ -160,7 +180,7 @@ defmodule GeoserverConfig.FeatureTypesTest do
     test "adds recalculate parameter when specified" do
       Req.Test.stub(__MODULE__, fn conn ->
         assert String.contains?(conn.query_string, "recalculate=nativebbox")
-        
+
         conn
         |> Plug.Conn.put_resp_content_type("application/json")
         |> Plug.Conn.send_resp(200, "")
@@ -187,7 +207,13 @@ defmodule GeoserverConfig.FeatureTypesTest do
       end)
 
       assert {:ok, "my_layer"} =
-               FeatureTypes.delete_featuretype(test_conn(__MODULE__), "my_workspace", "my_store", "my_layer", true)
+               FeatureTypes.delete_featuretype(
+                 test_conn(__MODULE__),
+                 "my_workspace",
+                 "my_store",
+                 "my_layer",
+                 true
+               )
     end
 
     test "returns {:ok, name} without recurse flag (default false)" do
@@ -200,7 +226,12 @@ defmodule GeoserverConfig.FeatureTypesTest do
       end)
 
       assert {:ok, "my_layer"} =
-               FeatureTypes.delete_featuretype(test_conn(__MODULE__), "my_workspace", "my_store", "my_layer")
+               FeatureTypes.delete_featuretype(
+                 test_conn(__MODULE__),
+                 "my_workspace",
+                 "my_store",
+                 "my_layer"
+               )
     end
 
     test "returns {:skipped, name} on 404 (idempotent delete)" do
@@ -211,7 +242,12 @@ defmodule GeoserverConfig.FeatureTypesTest do
       end)
 
       assert {:skipped, "my_layer"} =
-               FeatureTypes.delete_featuretype(test_conn(__MODULE__), "my_workspace", "my_store", "my_layer")
+               FeatureTypes.delete_featuretype(
+                 test_conn(__MODULE__),
+                 "my_workspace",
+                 "my_store",
+                 "my_layer"
+               )
     end
   end
 end

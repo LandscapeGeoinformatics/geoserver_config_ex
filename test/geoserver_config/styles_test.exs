@@ -9,14 +9,18 @@ defmodule GeoserverConfig.StylesTest do
     test "creates CSS style with explicit format" do
       Req.Test.stub(__MODULE__, fn conn ->
         # Verify CSS content type header
-        assert String.contains?(conn.req_headers |> Enum.find(fn {k, _} -> k == "content-type" end) |> elem(1), "geocss+css")
-        
+        assert String.contains?(
+                 conn.req_headers |> Enum.find(fn {k, _} -> k == "content-type" end) |> elem(1),
+                 "geocss+css"
+               )
+
         conn
         |> Plug.Conn.put_resp_content_type("application/json")
         |> Plug.Conn.send_resp(201, "")
       end)
 
       css_content = "* { stroke: red; fill: blue; }"
+
       opts = %{
         name: "my_css_style",
         content: css_content,
@@ -29,14 +33,18 @@ defmodule GeoserverConfig.StylesTest do
     test "creates SLD style with explicit format" do
       Req.Test.stub(__MODULE__, fn conn ->
         # Verify SLD content type header
-        assert String.contains?(conn.req_headers |> Enum.find(fn {k, _} -> k == "content-type" end) |> elem(1), "sld+xml")
-        
+        assert String.contains?(
+                 conn.req_headers |> Enum.find(fn {k, _} -> k == "content-type" end) |> elem(1),
+                 "sld+xml"
+               )
+
         conn
         |> Plug.Conn.put_resp_content_type("application/json")
         |> Plug.Conn.send_resp(201, "")
       end)
 
       sld_content = "<StyledLayerDescriptor><Name>test</Name></StyledLayerDescriptor>"
+
       opts = %{
         name: "my_sld_style",
         content: sld_content,
@@ -48,8 +56,11 @@ defmodule GeoserverConfig.StylesTest do
 
     test "auto-detects CSS format from filename" do
       Req.Test.stub(__MODULE__, fn conn ->
-        assert String.contains?(conn.req_headers |> Enum.find(fn {k, _} -> k == "content-type" end) |> elem(1), "geocss+css")
-        
+        assert String.contains?(
+                 conn.req_headers |> Enum.find(fn {k, _} -> k == "content-type" end) |> elem(1),
+                 "geocss+css"
+               )
+
         conn
         |> Plug.Conn.put_resp_content_type("application/json")
         |> Plug.Conn.send_resp(201, "")
@@ -66,8 +77,11 @@ defmodule GeoserverConfig.StylesTest do
 
     test "auto-detects SLD format from filename" do
       Req.Test.stub(__MODULE__, fn conn ->
-        assert String.contains?(conn.req_headers |> Enum.find(fn {k, _} -> k == "content-type" end) |> elem(1), "sld+xml")
-        
+        assert String.contains?(
+                 conn.req_headers |> Enum.find(fn {k, _} -> k == "content-type" end) |> elem(1),
+                 "sld+xml"
+               )
+
         conn
         |> Plug.Conn.put_resp_content_type("application/json")
         |> Plug.Conn.send_resp(201, "")
@@ -120,8 +134,11 @@ defmodule GeoserverConfig.StylesTest do
   describe "update_style/2 with CSS support" do
     test "updates CSS style" do
       Req.Test.stub(__MODULE__, fn conn ->
-        assert String.contains?(conn.req_headers |> Enum.find(fn {k, _} -> k == "content-type" end) |> elem(1), "geocss+css")
-        
+        assert String.contains?(
+                 conn.req_headers |> Enum.find(fn {k, _} -> k == "content-type" end) |> elem(1),
+                 "geocss+css"
+               )
+
         conn
         |> Plug.Conn.put_resp_content_type("application/json")
         |> Plug.Conn.send_resp(200, "")
@@ -202,7 +219,11 @@ defmodule GeoserverConfig.StylesTest do
           "/geoserver/rest/styles/source_style.sld" ->
             conn
             |> Plug.Conn.put_resp_content_type("application/vnd.ogc.sld+xml")
-            |> Plug.Conn.send_resp(200, "<StyledLayerDescriptor><Name>source</Name></StyledLayerDescriptor>")
+            |> Plug.Conn.send_resp(
+              200,
+              "<StyledLayerDescriptor><Name>source</Name></StyledLayerDescriptor>"
+            )
+
           "/geoserver/rest/workspaces/target_ws/styles" ->
             conn
             |> Plug.Conn.put_resp_content_type("application/json")
@@ -226,7 +247,11 @@ defmodule GeoserverConfig.StylesTest do
           "/geoserver/rest/workspaces/source_ws/styles/source_style.sld" ->
             conn
             |> Plug.Conn.put_resp_content_type("application/vnd.ogc.sld+xml")
-            |> Plug.Conn.send_resp(200, "<StyledLayerDescriptor><Name>source</Name></StyledLayerDescriptor>")
+            |> Plug.Conn.send_resp(
+              200,
+              "<StyledLayerDescriptor><Name>source</Name></StyledLayerDescriptor>"
+            )
+
           "/geoserver/rest/styles" ->
             conn
             |> Plug.Conn.put_resp_content_type("application/json")
@@ -263,8 +288,6 @@ defmodule GeoserverConfig.StylesTest do
   end
 
   describe "move_style/5" do
-
-
     test "returns error when copy fails during move" do
       Req.Test.stub(__MODULE__, fn conn ->
         conn
