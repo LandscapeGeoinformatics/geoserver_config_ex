@@ -193,17 +193,39 @@ defmodule GeoserverConfig.Styles do
       :css ->
         {:ok, "application/vnd.geoserver.geocss+css"}
 
+      :sld_11 ->
+        # SLD 1.1.0 / Symbology Encoding — requires a distinct MIME type so that
+        # GeoServer parses it with its SE parser rather than the SLD 1.0.0 parser.
+        {:ok, "application/vnd.ogc.se+xml"}
+
       :sld ->
-        {:ok, "application/vnd.ogc.sld+xml"}
+        # Auto-detect SLD version from content so that 1.1.0 documents get the
+        # correct MIME type (application/vnd.ogc.se+xml).  SLD 1.0.0 stays on
+        # application/vnd.ogc.sld+xml.
+        detect_sld_version(opts[:content])
 
       nil ->
         # Auto-detect from content or filename
         detect_from_content(opts[:content], opts[:filename])
 
       _ ->
-        {:error, "Invalid format. Use :sld or :css"}
+        {:error, "Invalid format. Use :sld, :sld_11, or :css"}
     end
   end
+
+  # Scans the full content for the SLD version attribute.  The attribute often
+  # appears after several hundred bytes of namespace declarations, so a short
+  # prefix check is not reliable.
+  @doc false
+  defp detect_sld_version(content) when is_binary(content) do
+    if String.contains?(content, ~s|version="1.1.0"|) do
+      {:ok, "application/vnd.ogc.se+xml"}
+    else
+      {:ok, "application/vnd.ogc.sld+xml"}
+    end
+  end
+
+  defp detect_sld_version(_), do: {:ok, "application/vnd.ogc.sld+xml"}
 
   @doc false
   defp detect_from_content(content, filename) do
@@ -234,12 +256,13 @@ defmodule GeoserverConfig.Styles do
 
   @doc false
   defp detect_from_content_string(content) when is_binary(content) do
-    # Take first 100 chars
-    content_str = String.trim(String.slice(content, 0..100))
+    # Use first 200 chars to identify the document type; version detection
+    # (detect_sld_version/1) scans the full content separately.
+    content_str = String.trim(String.slice(content, 0, 200))
 
     cond do
       String.contains?(content_str, "StyledLayerDescriptor") ->
-        {:ok, "application/vnd.ogc.sld+xml"}
+        detect_sld_version(content)
 
       String.contains?(content_str, "/*") || String.contains?(content_str, "*/") ->
         {:ok, "application/vnd.geoserver.geocss+css"}

@@ -104,6 +104,97 @@ defmodule GeoserverConfig.StylesTest do
                Styles.create_style(test_conn(__MODULE__), %{name: "test"})
     end
 
+    test "creates SLD 1.1.0 style with explicit :sld_11 format" do
+      Req.Test.stub(__MODULE__, fn conn ->
+        content_type =
+          conn.req_headers |> Enum.find(fn {k, _} -> k == "content-type" end) |> elem(1)
+
+        assert content_type == "application/vnd.ogc.se+xml"
+
+        conn
+        |> Plug.Conn.put_resp_content_type("application/json")
+        |> Plug.Conn.send_resp(201, "")
+      end)
+
+      opts = %{
+        name: "plan_ala",
+        content: ~s|<StyledLayerDescriptor version="1.1.0">...</StyledLayerDescriptor>|,
+        format: :sld_11
+      }
+
+      assert {:ok, "plan_ala"} = Styles.create_style(test_conn(__MODULE__), opts)
+    end
+
+    test "auto-detects SLD 1.1.0 and uses se+xml MIME when format is :sld" do
+      Req.Test.stub(__MODULE__, fn conn ->
+        content_type =
+          conn.req_headers |> Enum.find(fn {k, _} -> k == "content-type" end) |> elem(1)
+
+        assert content_type == "application/vnd.ogc.se+xml"
+
+        conn
+        |> Plug.Conn.put_resp_content_type("application/json")
+        |> Plug.Conn.send_resp(201, "")
+      end)
+
+      # version="1.1.0" may appear well past 100 chars due to namespace declarations
+      sld_11 = """
+      <?xml version="1.0" encoding="UTF-8"?>
+      <StyledLayerDescriptor xmlns="http://www.opengis.net/sld"
+        xmlns:se="http://www.opengis.net/se"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.opengis.net/sld http://schemas.opengis.net/sld/1.1.0/StyledLayerDescriptor.xsd"
+        version="1.1.0">
+        <NamedLayer><se:Name>test</se:Name></NamedLayer>
+      </StyledLayerDescriptor>
+      """
+
+      opts = %{name: "plan_ala", content: sld_11, format: :sld}
+
+      assert {:ok, "plan_ala"} = Styles.create_style(test_conn(__MODULE__), opts)
+    end
+
+    test "auto-detects SLD 1.0.0 and keeps sld+xml MIME when format is :sld" do
+      Req.Test.stub(__MODULE__, fn conn ->
+        content_type =
+          conn.req_headers |> Enum.find(fn {k, _} -> k == "content-type" end) |> elem(1)
+
+        assert content_type == "application/vnd.ogc.sld+xml"
+
+        conn
+        |> Plug.Conn.put_resp_content_type("application/json")
+        |> Plug.Conn.send_resp(201, "")
+      end)
+
+      opts = %{
+        name: "raster_default",
+        content: ~s|<StyledLayerDescriptor version="1.0.0">...</StyledLayerDescriptor>|,
+        format: :sld
+      }
+
+      assert {:ok, "raster_default"} = Styles.create_style(test_conn(__MODULE__), opts)
+    end
+
+    test "auto-detects SLD 1.1.0 from content when format is nil" do
+      Req.Test.stub(__MODULE__, fn conn ->
+        content_type =
+          conn.req_headers |> Enum.find(fn {k, _} -> k == "content-type" end) |> elem(1)
+
+        assert content_type == "application/vnd.ogc.se+xml"
+
+        conn
+        |> Plug.Conn.put_resp_content_type("application/json")
+        |> Plug.Conn.send_resp(201, "")
+      end)
+
+      sld_11 =
+        ~s|<StyledLayerDescriptor xmlns:se="http://www.opengis.net/se" version="1.1.0"/>|
+
+      opts = %{name: "auto_sld11", content: sld_11}
+
+      assert {:ok, "auto_sld11"} = Styles.create_style(test_conn(__MODULE__), opts)
+    end
+
     test "returns error for invalid format" do
       opts = %{
         name: "test",
@@ -111,7 +202,7 @@ defmodule GeoserverConfig.StylesTest do
         format: :invalid
       }
 
-      assert {:error, "Invalid format. Use :sld or :css"} =
+      assert {:error, "Invalid format. Use :sld, :sld_11, or :css"} =
                Styles.create_style(test_conn(__MODULE__), opts)
     end
 
